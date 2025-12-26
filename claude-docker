@@ -64,11 +64,17 @@ case "$STATUS" in
         echo -e "${BLUE}→ Creating new container: $CONTAINER_NAME${NC}"
         echo -e "${BLUE}→ Workspace: $(pwd)${NC}"
 
+        # Mount workspace
+        VOLUME_ARGS="-v $(pwd):/workspace"
+
+        # Mount shared clauder settings volume (all projects share credentials/settings)
+        VOLUME_ARGS="$VOLUME_ARGS -v clauder-shared:/root/.claude"
+        echo -e "${GREEN}→ Using shared clauder credentials${NC}"
+
         # Create and run container
         docker run -it --rm \
             --name "$CONTAINER_NAME" \
-            -v "$(pwd):/workspace" \
-            -v claude-data-"${CURRENT_DIR_HASH}":/root/.claude \
+            $VOLUME_ARGS \
             -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" \
             -w /workspace \
             "$IMAGE_NAME" \
