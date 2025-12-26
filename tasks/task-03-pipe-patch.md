@@ -1,7 +1,12 @@
 # Task 3: Pipe Method Patching
 
 ## Objective
-Monkey-patch `Observable.prototype.pipe` to capture operator chains and build parent-child relationships.
+Monkey-patch `Observable.prototype.pipe` to:
+- Capture operator chains and build parent-child relationships
+- Track operator instances (each `map()` call gets unique ID)
+- Crawl operator arguments for observables (e.g., `withLatestFrom(other$)`, `repeat({ delay: () => timer() })`)
+- Register ArgumentRelationships for cross-observable tracking
+- Support lodash-style argument paths for complex configs
 
 ## File to Create
 `src/tracking/pipe-patch.ts`
@@ -178,8 +183,11 @@ Test cases:
 3. Nested pipe creates correct paths
 4. Parent reference is set correctly
 5. Multiple pipes from same source work independently
-6. Unpatch restores original behavior
-7. displayName annotation works
+6. Operator instance tracking works (same operator, multiple uses)
+7. Argument crawling finds observables in operator args
+8. Function wrapping detects observable returns with `.$return` path
+9. Context stack links dynamically-created observables
+10. Generic operator decoration intercepts events correctly
 
 Example test:
 ```typescript

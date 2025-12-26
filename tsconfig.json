@@ -2,9 +2,10 @@
   "compilerOptions": {
     // Language and Environment
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "jsx": "react-jsx",
 
     // Emit
     "declaration": true,

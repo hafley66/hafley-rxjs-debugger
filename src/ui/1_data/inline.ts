@@ -1,0 +1,247 @@
+/**
+ * Inline Data Provider
+ *
+ * Reads directly from the tracking registry.
+ * Used when the visualization is embedded in the same page as the tracked code.
+ */
+
+import { BehaviorSubject, Subject, Observable, interval, Subscription } from 'rxjs';
+import { startWith } from 'rxjs/operators';
+import type { DataProvider } from './provider';
+import type {
+  TrackingEvent,
+  ObservableMetadata,
+  SubscriptionMetadata,
+  GraphState,
+  GraphNode,
+  GraphEdge,
+} from '../0_types';
+import {
+  observableMetadata,
+  activeSubscriptions,
+  archivedSubscriptions,
+  getObservableById,
+} from '../../tracking/registry';
+import { writeQueue$ } from '../../tracking/storage';
+
+/**
+ * Poll interval for registry changes (ms).
+ * Registry uses WeakMap so we can't get change notifications directly.
+ */
+const POLL_INTERVAL = 100;
+
+/**
+ * InlineProvider - reads from the tracking registry directly.
+ */
+export class InlineProvider implements DataProvider {
+  private readonly _observables$ = new BehaviorSubject<ObservableMetadata[]>([]);
+  private readonly _subscriptions$ = new BehaviorSubject<SubscriptionMetadata[]>([]);
+  private readonly _events$ = new Subject<TrackingEvent>();
+  private readonly _graph$ = new BehaviorSubject<GraphState>({ nodes: [], edges: [] });
+
+  private readonly subscriptions: Subscription[] = [];
+  private readonly seenObservableIds = new Set<string>();
+
+  constructor() {
+    this.setupPolling();
+    this.setupEventStream();
+  }
+
+  get observables$(): Observable<ObservableMetadata[]> {
+    return this._observables$.asObservable();
+  }
+
+  get subscriptions$(): Observable<SubscriptionMetadata[]> {
+    return this._subscriptions$.asObservable();
+  }
+
+  get events$(): Observable<TrackingEvent> {
+    return this._events$.asObservable();
+  }
+
+  get graph$(): Observable<GraphState> {
+    return this._graph$.asObservable();
+  }
+
+  getObservable(id: string): ObservableMetadata | undefined {
+    const obs = getObservableById(id);
+    return obs ? observableMetadata.get(obs) : undefined;
+  }
+
+  getSubscription(id: string): SubscriptionMetadata | undefined {
+    return activeSubscriptions.get(id) ?? archivedSubscriptions.get(id);
+  }
+
+  dispose(): void {
+    this.subscriptions.forEach((s) => s.unsubscribe());
+    this._observables$.complete();
+    this._subscriptions$.complete();
+    this._events$.complete();
+    this._graph$.complete();
+  }
+
+  /**
+   * Poll the registry for changes.
+   * WeakMap doesn't support iteration, so we track known IDs.
+   */
+  private setupPolling(): void {
+    const poll$ = interval(POLL_INTERVAL).pipe(startWith(0));
+
+    const sub = poll$.subscribe(() => {
+      this.updateSubscriptions();
+      this.updateGraph();
+    });
+
+    this.subscriptions.push(sub);
+  }
+
+  /**
+   * Listen to the write queue for real-time events.
+   */
+  private setupEventStream(): void {
+    const sub = writeQueue$.subscribe((write) => {
+      // Track new observables
+      if (write.store === 'observables') {
+        const meta = write.data as ObservableMetadata;
+        if (!this.seenObservableIds.has(meta.id)) {
+          this.seenObservableIds.add(meta.id);
+          this.updateObservables(meta);
+        }
+      }
+
+      // Emit subscription events
+      if (write.store === 'subscriptions') {
+        const meta = write.data as SubscriptionMetadata;
+        this._events$.next({
+          type: 'subscribe',
+          timestamp: meta.subscribedAt,
+          subscriptionId: meta.id,
+          observableId: meta.observableId,
+        });
+      }
+
+      // Emit emission events
+      if (write.store === 'emissions') {
+        const emission = write.data as { id: string; subscriptionId: string; observableId: string; value: unknown; timestamp: number };
+        this._events$.next({
+          type: 'next',
+          timestamp: emission.timestamp,
+          subscriptionId: emission.subscriptionId,
+          observableId: emission.observableId,
+          value: emission.value,
+        });
+      }
+
+      // Emit error events
+      if (write.store === 'errors') {
+        const error = write.data as { id: string; subscriptionId: string; observableId: string; error: unknown; timestamp: number };
+        this._events$.next({
+          type: 'error',
+          timestamp: error.timestamp,
+          subscriptionId: error.subscriptionId,
+          observableId: error.observableId,
+          error: error.error,
+        });
+      }
+    });
+
+    this.subscriptions.push(sub);
+  }
+
+  private updateObservables(newMeta: ObservableMetadata): void {
+    const current = this._observables$.getValue();
+    this._observables$.next([...current, newMeta]);
+  }
+
+  private updateSubscriptions(): void {
+    const all: SubscriptionMetadata[] = [
+      ...activeSubscriptions.values(),
+      ...archivedSubscriptions.values(),
+    ];
+    this._subscriptions$.next(all);
+  }
+
+  private updateGraph(): void {
+    const observables = this._observables$.getValue();
+    const subscriptions = this._subscriptions$.getValue();
+
+    const nodes: GraphNode[] = [];
+    const edges: GraphEdge[] = [];
+
+    // Create observable nodes
+    for (const meta of observables) {
+      const operatorName = meta.operators[meta.operators.length - 1] ?? meta.subjectType ?? 'observable';
+      nodes.push({
+        id: meta.id,
+        type: 'observable',
+        label: `${meta.id} ${operatorName}`,
+        metadata: meta,
+        isActive: true,
+        isRoot: !meta.triggeredBySubscription && !meta.lazyRegistered,
+      });
+
+      // Add pipe edge to parent
+      if (meta.parent) {
+        const parent = meta.parent.deref();
+        if (parent) {
+          const parentMeta = observableMetadata.get(parent);
+          if (parentMeta) {
+            edges.push({
+              id: `pipe-${parentMeta.id}-${meta.id}`,
+              type: 'pipe',
+              source: parentMeta.id,
+              target: meta.id,
+              isActive: true,
+            });
+          }
+        }
+      }
+    }
+
+    // Count subscriptions per observable for "(2/5)" labels
+    const subCountByObs = new Map<string, number>();
+    for (const sub of subscriptions) {
+      const count = subCountByObs.get(sub.observableId) ?? 0;
+      subCountByObs.set(sub.observableId, count + 1);
+    }
+
+    // Create subscription nodes
+    const subIndexByObs = new Map<string, number>();
+    for (const meta of subscriptions) {
+      const idx = (subIndexByObs.get(meta.observableId) ?? 0) + 1;
+      subIndexByObs.set(meta.observableId, idx);
+      const total = subCountByObs.get(meta.observableId) ?? 1;
+
+      nodes.push({
+        id: meta.id,
+        type: 'subscription',
+        label: `${meta.id} (${idx}/${total})`,
+        metadata: meta,
+        isActive: !meta.unsubscribedAt,
+        isRoot: false,
+      });
+
+      // Add subscribe edge from observable to subscription
+      edges.push({
+        id: `sub-${meta.observableId}-${meta.id}`,
+        type: 'subscribe',
+        source: meta.observableId,
+        target: meta.id,
+        isActive: !meta.unsubscribedAt,
+      });
+
+      // Add parent subscription edge
+      if (meta.parentSubscriptionId) {
+        edges.push({
+          id: `trigger-${meta.parentSubscriptionId}-${meta.id}`,
+          type: 'trigger',
+          source: meta.parentSubscriptionId,
+          target: meta.id,
+          isActive: !meta.unsubscribedAt,
+        });
+      }
+    }
+
+    this._graph$.next({ nodes, edges });
+  }
+}
