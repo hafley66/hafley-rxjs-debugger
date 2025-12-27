@@ -9,7 +9,8 @@
       "Bash(pnpm test:watch:*)",
       "Bash(pnpm vitest:*)",
       "Bash(pnpm list:*)",
-      "Bash(pnpm test:browser:*)"
+      "Bash(pnpm test:browser:*)",
+      "Bash(pnpm test:run:*)"
     ]
   }
 }

@@ -1,133 +1,189 @@
 /**
  * Test App - Simulates API caching patterns with RxJS
  *
- * Uses mock data to avoid tracking feedback loops in tests.
+ * Uses REAL tracking - imports from rxjs-patched to track all observables.
  */
 
-import { useEffect, useState, useRef } from 'react';
-import { BehaviorSubject, interval, of } from 'rxjs';
-import { map, take, delay } from 'rxjs/operators';
-import { Graph } from '../../3_components/Graph';
-import type { GraphState, GraphNode, GraphEdge } from '../../0_types';
+import { useEffect, useState } from 'react';
+// Normal rxjs imports - aliased to tracking/rxjs-patched by vite
+import { BehaviorSubject, from, interval } from 'rxjs';
+import { switchMap, take, shareReplay, filter } from 'rxjs/operators';
+import { PipeTree } from '@ui/3_components/PipeTree';
+import { InlineProvider } from '@ui/1_data/inline';
+import type { GraphState } from '@ui/0_types';
+import type { ObservableMetadata } from '@tracking/types';
 
-// Mock graph state that simulates what the debugger would show
-const mockGraphState: GraphState = {
-  nodes: [
-    { id: 'obs#0', type: 'observable', label: 'obs#0 interval', isActive: true, isRoot: true },
-    { id: 'obs#1', type: 'observable', label: 'obs#1 share', isActive: true, isRoot: false },
-    { id: 'obs#2', type: 'observable', label: 'obs#2 shareReplay', isActive: true, isRoot: false },
-    { id: 'sub#0', type: 'subscription', label: 'sub#0 (1/2)', isActive: true, isRoot: false },
-    { id: 'sub#1', type: 'subscription', label: 'sub#1 (2/2)', isActive: true, isRoot: false },
-    { id: 'sub#2', type: 'subscription', label: 'sub#2 (1/1)', isActive: false, isRoot: false },
-  ],
-  edges: [
-    { id: 'pipe-0-1', type: 'pipe', source: 'obs#0', target: 'obs#1', isActive: true },
-    { id: 'pipe-1-2', type: 'pipe', source: 'obs#1', target: 'obs#2', isActive: true },
-    { id: 'sub-1-0', type: 'subscribe', source: 'obs#1', target: 'sub#0', isActive: true },
-    { id: 'sub-1-1', type: 'subscribe', source: 'obs#1', target: 'sub#1', isActive: true },
-    { id: 'sub-2-2', type: 'subscribe', source: 'obs#2', target: 'sub#2', isActive: false },
-  ],
-};
+// ============ Fake API Layer ============
 
-// Simulate data loading
-function useSimulatedData() {
-  const [user, setUser] = useState<{ id: number; name: string } | null>(null);
-  const [pollData, setPollData] = useState<string[]>([]);
-  const [counter, setCounter] = useState(0);
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
+interface Post {
+  id: number;
+  userId: number;
+  title: string;
+}
+
+// Fake fetch that returns mock data after a delay
+function fakeFetch<T>(url: string, data: T, delayMs = 300): Promise<T> {
+  return new Promise(resolve => setTimeout(() => resolve(data), delayMs));
+}
+
+// ============ RxJS Service Layer (TRACKED) ============
+
+// Debug: check if BehaviorSubject is from our patched version
+console.log('[TestApp] BehaviorSubject:', BehaviorSubject.toString().slice(0, 100));
+
+// Session state - null means not logged in
+const session$ = new BehaviorSubject<User | null>(null);
+console.log('[TestApp] session$ created:', session$);
+
+// User profile - cached with shareReplay, re-fetches when session changes
+const userProfile$ = session$.pipe(
+  filter((user): user is User => user !== null),
+  switchMap(user =>
+    from(fakeFetch(`/api/users/${user.id}`, {
+      ...user,
+      avatar: `https://i.pravatar.cc/150?u=${user.id}`,
+      joinedAt: '2024-01-15',
+    }))
+  ),
+  shareReplay(1)
+);
+
+// User's posts - switchMap from session, cached
+const userPosts$ = session$.pipe(
+  filter((user): user is User => user !== null),
+  switchMap(user =>
+    from(fakeFetch<Post[]>(`/api/users/${user.id}/posts`, [
+      { id: 1, userId: user.id, title: 'Getting Started with RxJS' },
+      { id: 2, userId: user.id, title: 'Understanding switchMap' },
+      { id: 3, userId: user.id, title: 'shareReplay Deep Dive' },
+    ], 500))
+  ),
+  shareReplay(1)
+);
+
+// Live notifications - polls every 2 seconds
+const notifications$ = interval(2000).pipe(
+  switchMap(() =>
+    from(fakeFetch(`/api/notifications`, {
+      count: Math.floor(Math.random() * 5),
+      timestamp: new Date().toLocaleTimeString(),
+    }, 100))
+  )
+);
+
+// ============ Data Provider (reads from actual tracking registry) ============
+
+const provider = new InlineProvider();
+
+// Debug: log what we're getting
+provider.graph$.subscribe(g => {
+  console.log('[TestApp] graph update:', g.nodes.length, 'nodes,', g.edges.length, 'edges');
+  if (g.nodes.length > 0) {
+    console.log('[TestApp] nodes:', g.nodes.map(n => n.label));
+  }
+});
+
+// ============ React Hooks ============
+
+function useGraphState() {
+  const [graphState, setGraphState] = useState<GraphState>({ nodes: [], edges: [] });
 
   useEffect(() => {
-    // Simulated cached user fetch
-    const userSub = of({ id: 1, name: 'Alice' }).pipe(delay(100)).subscribe(setUser);
+    const sub = provider.graph$.subscribe(setGraphState);
+    return () => sub.unsubscribe();
+  }, []);
 
-    // Simulated polling
-    const pollSub = interval(800).pipe(
-      take(5),
-      map(() => new Date().toLocaleTimeString())
-    ).subscribe(ts => {
-      setPollData(prev => [...prev.slice(-4), ts]);
-    });
+  return graphState;
+}
 
-    // Simulated counter
-    const counterSub = interval(500).pipe(take(10)).subscribe(setCounter);
+function useObservables() {
+  const [observables, setObservables] = useState<ObservableMetadata[]>([]);
+
+  useEffect(() => {
+    const sub = provider.observables$.subscribe(setObservables);
+    return () => sub.unsubscribe();
+  }, []);
+
+  return observables;
+}
+
+function useApiData() {
+  const [profile, setProfile] = useState<any>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [notifications, setNotifications] = useState<{ count: number; timestamp: string } | null>(null);
+
+  useEffect(() => {
+    // "Login" after 500ms
+    const loginTimer = setTimeout(() => {
+      session$.next({ id: 1, name: 'Alice', email: 'alice@example.com' });
+    }, 500);
+
+    const profileSub = userProfile$.subscribe(setProfile);
+    const postsSub = userPosts$.subscribe(setPosts);
+    const notifSub = notifications$.pipe(take(10)).subscribe(setNotifications);
 
     return () => {
-      userSub.unsubscribe();
-      pollSub.unsubscribe();
-      counterSub.unsubscribe();
+      clearTimeout(loginTimer);
+      profileSub.unsubscribe();
+      postsSub.unsubscribe();
+      notifSub.unsubscribe();
     };
   }, []);
 
-  return { user, pollData, counter };
+  return { profile, posts, notifications };
 }
 
 export function TestApp() {
-  const { user, pollData, counter } = useSimulatedData();
-  const [graphState, setGraphState] = useState<GraphState>({ nodes: [], edges: [] });
-
-  // Animate graph state appearing
-  useEffect(() => {
-    const timeouts: ReturnType<typeof setTimeout>[] = [];
-
-    // Gradually add nodes/edges to simulate real tracking
-    timeouts.push(setTimeout(() => {
-      setGraphState({
-        nodes: mockGraphState.nodes.slice(0, 2),
-        edges: mockGraphState.edges.slice(0, 1),
-      });
-    }, 200));
-
-    timeouts.push(setTimeout(() => {
-      setGraphState({
-        nodes: mockGraphState.nodes.slice(0, 4),
-        edges: mockGraphState.edges.slice(0, 3),
-      });
-    }, 600));
-
-    timeouts.push(setTimeout(() => {
-      setGraphState(mockGraphState);
-    }, 1000));
-
-    return () => timeouts.forEach(clearTimeout);
-  }, []);
+  const { profile, posts, notifications } = useApiData();
+  const graphState = useGraphState();
+  const observables = useObservables();
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 20, background: '#0f172a', color: '#e2e8f0', minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'system-ui', padding: 20, background: '#0f172a', color: '#e2e8f0', width: '90vw', minHeight: '90vh' }}>
       <h1 style={{ margin: '0 0 20px', fontSize: 24 }}>RxJS Debugger Test App</h1>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-        {/* Cached User */}
+        {/* User Profile - from session$ -> switchMap -> from(fetch) -> shareReplay */}
         <div style={{ background: '#1e293b', padding: 16, borderRadius: 8 }}>
-          <h3 style={{ margin: '0 0 12px', color: '#60a5fa' }}>Cached User (shareReplay)</h3>
-          <pre style={{ margin: 0, fontSize: 12 }}>
-            {user ? JSON.stringify(user, null, 2) : 'Loading...'}
+          <h3 style={{ margin: '0 0 12px', color: '#60a5fa' }}>User Profile (shareReplay)</h3>
+          <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap' }}>
+            {profile ? JSON.stringify(profile, null, 2) : 'Waiting for login...'}
           </pre>
         </div>
 
-        {/* Polling Data */}
+        {/* User Posts - also switchMap from session$ */}
         <div style={{ background: '#1e293b', padding: 16, borderRadius: 8 }}>
-          <h3 style={{ margin: '0 0 12px', color: '#22c55e' }}>Polling Data (repeat)</h3>
+          <h3 style={{ margin: '0 0 12px', color: '#22c55e' }}>User Posts (switchMap)</h3>
           <div style={{ fontSize: 12 }}>
-            {pollData.length === 0 ? 'Waiting...' : pollData.map((ts, i) => (
-              <div key={i}>Poll {i + 1}: {ts}</div>
+            {posts.length === 0 ? 'Loading posts...' : posts.map(post => (
+              <div key={post.id} style={{ marginBottom: 4 }}>• {post.title}</div>
             ))}
           </div>
         </div>
 
-        {/* Shared Counter */}
+        {/* Live Notifications - interval -> switchMap -> from(fetch) */}
         <div style={{ background: '#1e293b', padding: 16, borderRadius: 8, gridColumn: 'span 2' }}>
-          <h3 style={{ margin: '0 0 12px', color: '#a78bfa' }}>Shared Counter (share)</h3>
+          <h3 style={{ margin: '0 0 12px', color: '#a78bfa' }}>Notifications (interval polling)</h3>
           <div style={{ fontSize: 14 }}>
-            Count: {counter} | 2 subscribers active
+            {notifications
+              ? `${notifications.count} new notifications @ ${notifications.timestamp}`
+              : 'Starting poll...'}
           </div>
         </div>
       </div>
 
-      {/* Debugger visualization */}
-      <div style={{ background: '#1e293b', borderRadius: 8, overflow: 'hidden', padding: 8 }}>
-        <div style={{ marginBottom: 8, fontSize: 14, color: '#9ca3af' }}>
-          Observable Graph ({graphState.nodes.length} nodes, {graphState.edges.length} edges)
+      {/* Pipe Tree visualization */}
+      <div style={{ background: '#1e293b', borderRadius: 8, overflow: 'hidden', padding: 16 }}>
+        <div style={{ marginBottom: 12, fontSize: 14, color: '#9ca3af' }}>
+          Observable Pipe Tree ({observables.length} observables)
         </div>
-        <Graph state={graphState} width={700} height={350} />
+        <PipeTree observables={observables} />
       </div>
     </div>
   );

@@ -10,9 +10,7 @@ export type { MountOptions, MountResult } from './5_mount';
 
 // Components (for custom integration)
 export { App } from './4_App';
-export { Graph } from './3_components/Graph';
-export { Node } from './3_components/Node';
-export { Edge } from './3_components/Edge';
+export { PipeTree } from './3_components/PipeTree';
 
 // Data providers
 export type { DataProvider } from './1_data/provider';

@@ -18,7 +18,23 @@ import {
 } from './registry';
 import { writeQueue$ } from './storage';
 import { getCallerInfo } from './stack-parser';
+import { patchPipe } from './pipe-patch';
 import type { ObservableMetadata } from './types';
+
+// Import argument-detecting wrappers for combination functions
+import {
+  combineLatest as argCombineLatest,
+  merge as argMerge,
+  forkJoin as argForkJoin,
+  zip as argZip,
+  race as argRace,
+  concat as argConcat,
+  onErrorResumeNext as argOnErrorResumeNext,
+} from './argument-detection';
+
+// Apply pipe patch when this module loads
+patchPipe();
+console.log('[rxjs-patched] pipe() patched');
 
 /**
  * Wrap a creation function to register the returned observable
@@ -76,7 +92,9 @@ function autoWrapCreations<T extends Record<string, any>>(
   return result;
 }
 
-// Creation functions to wrap
+// Creation functions to wrap (basic registration only)
+// NOTE: merge, concat, combineLatest, forkJoin, zip, race, onErrorResumeNext
+// are handled by argument-detection.ts with observable argument scanning
 const creationFunctionNames = [
   'of',
   'from',
@@ -94,21 +112,14 @@ const creationFunctionNames = [
   'fromFetch',
   'bindCallback',
   'bindNodeCallback',
-  'merge',
-  'concat',
-  'combineLatest',
-  'forkJoin',
-  'zip',
-  'race',
   'partition',
   'iif',
   'using',
-  'onErrorResumeNext',
 ];
 
 const wrappedCreations = autoWrapCreations(rx, creationFunctionNames);
 
-// Export wrapped creation functions
+// Export wrapped creation functions (basic registration)
 export const {
   of,
   from,
@@ -120,15 +131,19 @@ export const {
   throwError,
   fromEvent,
   fromEventPattern,
-  merge,
-  concat,
-  combineLatest,
-  forkJoin,
-  zip,
-  race,
   iif,
-  onErrorResumeNext,
 } = wrappedCreations;
+
+// Export argument-detecting wrappers for combination functions
+export {
+  argCombineLatest as combineLatest,
+  argMerge as merge,
+  argForkJoin as forkJoin,
+  argZip as zip,
+  argRace as race,
+  argConcat as concat,
+  argOnErrorResumeNext as onErrorResumeNext,
+};
 
 // Export our Observable
 export { Observable };

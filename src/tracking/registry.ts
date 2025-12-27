@@ -99,6 +99,15 @@ export function generateSubscriptionId(): string {
 export function registerObservable(obs: any, metadata: ObservableMetadata): void {
   observableMetadata.set(obs, metadata);
   observableById.set(metadata.id, new WeakRef(obs));
+
+  // Emit to writeQueue$ so InlineProvider can track it
+  // Strip WeakRef (parent) before saving - can't be serialized to IndexedDB
+  const { parent, ...serializableMetadata } = metadata;
+  writeQueue$.next({
+    store: 'observables',
+    key: metadata.id,
+    data: serializableMetadata,
+  });
 }
 
 /**

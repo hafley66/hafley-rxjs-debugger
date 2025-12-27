@@ -11,10 +11,23 @@
  *
  * Note: share/shareReplay work generically via constructor-proxy.ts
  * which intercepts Subject creation to capture context.
+ *
+ * Higher-order operators (switchMap, mergeMap, etc.) are specially wrapped
+ * to push operatorContext when their project functions execute.
  */
 
 import * as rxjsOps from 'rxjs/operators';
 import { annotateOperator } from './pipe-patch';
+
+// Import specially-wrapped higher-order operators
+import {
+  switchMap as wrappedSwitchMap,
+  mergeMap as wrappedMergeMap,
+  concatMap as wrappedConcatMap,
+  exhaustMap as wrappedExhaustMap,
+  expand as wrappedExpand,
+  flatMap as wrappedFlatMap,
+} from './higher-order-wrapper';
 
 /**
  * Wraps all operator factories to auto-annotate the returned OperatorFunction
@@ -43,11 +56,8 @@ export const {
   scan,
   reduce,
   pluck,
-  switchMap,
-  mergeMap,
-  concatMap,
-  exhaustMap,
-  expand,
+  // NOTE: switchMap, mergeMap, concatMap, exhaustMap, expand are exported separately below
+  // (they need special wrapping to push operatorContext)
   groupBy,
   pairwise,
   partition,
@@ -154,3 +164,14 @@ export const {
 
 // Re-export the full decorated object for dynamic access
 export { decorated as operators };
+
+// Export specially-wrapped higher-order operators
+// These push operatorContext when their project functions execute
+export {
+  wrappedSwitchMap as switchMap,
+  wrappedMergeMap as mergeMap,
+  wrappedConcatMap as concatMap,
+  wrappedExhaustMap as exhaustMap,
+  wrappedExpand as expand,
+  wrappedFlatMap as flatMap,
+};

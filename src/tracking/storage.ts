@@ -4,7 +4,7 @@
  */
 
 import localforage from 'localforage';
-import { Subject } from 'rxjs';
+import { ReplaySubject } from 'rxjs';
 import { bufferTime, filter, mergeMap } from 'rxjs/operators';
 import type {
   ObservableMetadata,
@@ -70,8 +70,9 @@ export const stores = {
 
 /**
  * Write queue - call .next() directly to queue writes
+ * ReplaySubject so late subscribers (like InlineProvider) catch up on past events
  */
-export const writeQueue$ = new Subject<WriteOp>();
+export const writeQueue$ = new ReplaySubject<WriteOp>(1000);
 
 /**
  * Batch writes every 100ms for efficiency
