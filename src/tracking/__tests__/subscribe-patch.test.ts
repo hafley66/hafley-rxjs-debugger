@@ -370,6 +370,61 @@ describe('subscribe-patch', () => {
     });
   });
 
+  describe('recursion guard', () => {
+    it('should not cause stack overflow when subscribing inside emission handler', () => {
+      // This simulates the InlineProvider pattern where emissions trigger new subscriptions
+      const trigger$ = new Subject<number>();
+      const data$ = new BehaviorSubject<number[]>([]);
+
+      // Subscribe to trigger$ and update data$ on each emission
+      // data$ subscription then triggers more work
+      const sub1 = trigger$.subscribe((val) => {
+        const current = data$.getValue();
+        data$.next([...current, val]);
+      });
+
+      // Subscribe to data$ - this runs during trigger$'s emission handler
+      const values: number[][] = [];
+      const sub2 = data$.subscribe((arr) => {
+        values.push([...arr]);
+      });
+
+      // Should not cause infinite recursion
+      expect(() => {
+        trigger$.next(1);
+        trigger$.next(2);
+        trigger$.next(3);
+      }).not.toThrow();
+
+      expect(values).toEqual([[], [1], [1, 2], [1, 2, 3]]);
+
+      sub1.unsubscribe();
+      sub2.unsubscribe();
+    });
+
+    it('should handle deeply nested subscriptions without stack overflow', () => {
+      const subject = new Subject<number>();
+      let callCount = 0;
+
+      // Create a chain where each emission triggers a new subscription
+      const sub = subject.subscribe(() => {
+        callCount++;
+        if (callCount < 100) {
+          // This would cause stack overflow without the recursion guard
+          subject.next(callCount);
+        }
+      });
+
+      expect(() => {
+        subject.next(0);
+      }).not.toThrow();
+
+      expect(callCount).toBe(100);
+
+      sub.unsubscribe();
+    });
+  });
+
   describe('archive cleanup', () => {
     it('should clean up old archived subscriptions', () => {
       // Create and unsubscribe several

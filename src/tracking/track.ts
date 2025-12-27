@@ -121,10 +121,12 @@ function normalizeMetadata(nameOrMeta: string | TrackMetadata): TrackMetadata {
  */
 function applyAnnotation<T>(obs: Observable<T>, meta: TrackMetadata): void {
   const existing = getMetadata(obs);
+  console.log(`[track$] applyAnnotation("${meta.name}") - existing:`, existing?.id ?? 'NOT FOUND');
 
   if (existing) {
     // Update existing metadata
     existing.variableName = meta.name;
+    console.log(`[track$] set variableName="${meta.name}" on ${existing.id}`);
 
     if (meta.file || meta.line || meta.column) {
       existing.location = {
@@ -197,6 +199,8 @@ export interface CompactMeta {
 }
 
 export function __track$<T>(obs: T, meta: CompactMeta): T {
+  console.log(`[__track$] called with name="${meta.n}", file="${meta.f}", line=${meta.l}`);
+
   // Expand compact meta to full format
   const fullMeta: TrackMetadata = {
     name: meta.n,
@@ -207,6 +211,8 @@ export function __track$<T>(obs: T, meta: CompactMeta): T {
   // If it's an observable, apply annotation
   if (isObservable(obs)) {
     applyAnnotation(obs, fullMeta);
+  } else {
+    console.log(`[__track$] NOT an observable:`, typeof obs);
   }
 
   return obs;

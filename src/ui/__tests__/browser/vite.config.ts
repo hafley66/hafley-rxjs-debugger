@@ -1,6 +1,7 @@
 import { defineConfig } from 'rolldown-vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { rxjsTrackPlugin } from '../../../vite-plugin';
 
 const srcDir = path.resolve(__dirname, '../../..');
 
@@ -28,6 +29,12 @@ export default defineConfig({
         return null;
       },
     },
+    // Auto-annotate RxJS observables with variable names and file locations
+    // Exclude tracking folder (circular dep) and ui/1_data (infrastructure)
+    rxjsTrackPlugin({
+      trackImport: '@tracking/track',
+      exclude: /node_modules|\/tracking\/|\/ui\/1_data\//
+    }),
     react(),
   ],
   root: __dirname,

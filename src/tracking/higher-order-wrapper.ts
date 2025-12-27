@@ -19,6 +19,7 @@ import {
   operatorContext,
   subscriptionContext,
   generateOperatorInstanceId,
+  activeSubscriptions,
 } from './registry';
 import type { OperatorExecutionContext } from './types';
 import { annotateOperator } from './pipe-patch';
@@ -35,11 +36,22 @@ function wrapProject<T, R>(
     // Get current subscription context for linking
     const subCtx = subscriptionContext.peek();
 
+    // The current subscription context is for the SOURCE observable (e.g., interval).
+    // But we want the observable that HAS this operator (e.g., the switchMap result).
+    // That's the parent subscription's observable.
+    let targetObservableId = subCtx?.observableId || 'unknown';
+    if (subCtx?.parentSubscriptionId) {
+      const parentMeta = activeSubscriptions.get(subCtx.parentSubscriptionId);
+      if (parentMeta) {
+        targetObservableId = parentMeta.observableId;
+      }
+    }
+
     const ctx: OperatorExecutionContext = {
       operatorName,
       operatorInstanceId,
       subscriptionId: subCtx?.subscriptionId || 'unknown',
-      observableId: subCtx?.observableId || 'unknown',
+      observableId: targetObservableId,
       event: 'next',
       value,
       timestamp: Date.now(),

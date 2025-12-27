@@ -18,6 +18,7 @@ import {
   pipeContext,
 } from './registry';
 import { writeQueue$ } from './storage';
+import { isTrackingEnabled } from './config';
 import type { ObservableMetadata, PipeContext } from './types';
 
 // Store original pipe for restoration
@@ -101,6 +102,11 @@ export function patchPipe(): void {
     this: Observable<any>,
     ...operators: any[]
   ): Observable<any> {
+    // If tracking is disabled, just call original pipe
+    if (!isTrackingEnabled()) {
+      return (originalPipe as Function).apply(this, operators);
+    }
+
     // Get source metadata
     const sourceMetadata = getMetadata(this);
     const sourceId = sourceMetadata?.id || 'unknown';
@@ -137,15 +143,17 @@ export function patchPipe(): void {
     if (existingMeta) {
       // Update existing metadata with pipe-specific info
       existingMeta.parent = new WeakRef(this);
+      existingMeta.parentId = sourceId; // Serializable version of parent
       existingMeta.operators = operatorInfos.map((o) => o.name);
       existingMeta.path = generatePath(sourcePath, operators.length);
       existingMeta.pipeGroupId = pipeId;
 
-      // Update in storage
+      // Update in storage (strip WeakRef)
+      const { parent, ...serializableMetadata } = existingMeta;
       writeQueue$.next({
         store: 'observables',
         key: existingMeta.id,
-        data: existingMeta,
+        data: serializableMetadata,
       });
     } else {
       // Result doesn't have metadata (raw RxJS observable)
@@ -159,6 +167,7 @@ export function patchPipe(): void {
           column: 0,
         },
         parent: new WeakRef(this),
+        parentId: sourceId, // Serializable version of parent
         operators: operatorInfos.map((o) => o.name),
         path: generatePath(sourcePath, operators.length),
         pipeGroupId: pipeId,
@@ -166,11 +175,12 @@ export function patchPipe(): void {
 
       observableMetadata.set(result, metadata);
 
-      // Write to storage
+      // Write to storage (strip WeakRef)
+      const { parent, ...serializableMetadata } = metadata;
       writeQueue$.next({
         store: 'observables',
         key: metadata.id,
-        data: metadata,
+        data: serializableMetadata,
       });
     }
 

@@ -7,6 +7,7 @@
 
 import { BehaviorSubject, Subject, Observable, interval, Subscription } from 'rxjs';
 import { startWith } from 'rxjs/operators';
+import { disableTracking, enableTracking } from '../../tracking/config';
 import type { DataProvider } from './provider';
 import type {
   TrackingEvent,
@@ -23,6 +24,7 @@ import {
   getObservableById,
 } from '../../tracking/registry';
 import { writeQueue$ } from '../../tracking/storage';
+import { createPipeTree$, type PipeTreeState } from './pipe-tree';
 
 /**
  * Poll interval for registry changes (ms).
@@ -34,33 +36,40 @@ const POLL_INTERVAL = 100;
  * InlineProvider - reads from the tracking registry directly.
  */
 export class InlineProvider implements DataProvider {
+  // Raw data subjects (internal)
   private readonly _observables$ = new BehaviorSubject<ObservableMetadata[]>([]);
   private readonly _subscriptions$ = new BehaviorSubject<SubscriptionMetadata[]>([]);
   private readonly _events$ = new Subject<TrackingEvent>();
   private readonly _graph$ = new BehaviorSubject<GraphState>({ nodes: [], edges: [] });
 
-  private readonly subscriptions: Subscription[] = [];
+  // Public streams (cached asObservable to prevent tracking)
+  readonly observables$: Observable<ObservableMetadata[]>;
+  readonly subscriptions$: Observable<SubscriptionMetadata[]>;
+  readonly events$: Observable<TrackingEvent>;
+  readonly graph$: Observable<GraphState>;
+  readonly pipeTree$: Observable<PipeTreeState>;
+
+  private readonly internalSubs: Subscription[] = [];
   private readonly seenObservableIds = new Set<string>();
 
   constructor() {
+    // Disable tracking while setting up internal observables to prevent recursion
+    disableTracking();
+
+    // Cache asObservable() results while tracking is disabled
+    this.observables$ = this._observables$.asObservable();
+    this.subscriptions$ = this._subscriptions$.asObservable();
+    this.events$ = this._events$.asObservable();
+    this.graph$ = this._graph$.asObservable();
+
+    // Create derived streams (FRP transforms)
+    this.pipeTree$ = createPipeTree$(this.observables$, this.subscriptions$);
+
     this.setupPolling();
     this.setupEventStream();
-  }
 
-  get observables$(): Observable<ObservableMetadata[]> {
-    return this._observables$.asObservable();
-  }
-
-  get subscriptions$(): Observable<SubscriptionMetadata[]> {
-    return this._subscriptions$.asObservable();
-  }
-
-  get events$(): Observable<TrackingEvent> {
-    return this._events$.asObservable();
-  }
-
-  get graph$(): Observable<GraphState> {
-    return this._graph$.asObservable();
+    // Re-enable tracking
+    enableTracking();
   }
 
   getObservable(id: string): ObservableMetadata | undefined {
@@ -73,7 +82,7 @@ export class InlineProvider implements DataProvider {
   }
 
   dispose(): void {
-    this.subscriptions.forEach((s) => s.unsubscribe());
+    this.internalSubs.forEach((s) => s.unsubscribe());
     this._observables$.complete();
     this._subscriptions$.complete();
     this._events$.complete();
@@ -92,7 +101,7 @@ export class InlineProvider implements DataProvider {
       this.updateGraph();
     });
 
-    this.subscriptions.push(sub);
+    this.internalSubs.push(sub);
   }
 
   /**
@@ -100,57 +109,75 @@ export class InlineProvider implements DataProvider {
    */
   private setupEventStream(): void {
     const sub = writeQueue$.subscribe((write) => {
-      // Track new observables
-      if (write.store === 'observables') {
-        const meta = write.data as ObservableMetadata;
-        if (!this.seenObservableIds.has(meta.id)) {
-          this.seenObservableIds.add(meta.id);
-          this.updateObservables(meta);
-        }
-      }
-
-      // Emit subscription events
-      if (write.store === 'subscriptions') {
-        const meta = write.data as SubscriptionMetadata;
-        this._events$.next({
-          type: 'subscribe',
-          timestamp: meta.subscribedAt,
-          subscriptionId: meta.id,
-          observableId: meta.observableId,
-        });
-      }
-
-      // Emit emission events
-      if (write.store === 'emissions') {
-        const emission = write.data as { id: string; subscriptionId: string; observableId: string; value: unknown; timestamp: number };
-        this._events$.next({
-          type: 'next',
-          timestamp: emission.timestamp,
-          subscriptionId: emission.subscriptionId,
-          observableId: emission.observableId,
-          value: emission.value,
-        });
-      }
-
-      // Emit error events
-      if (write.store === 'errors') {
-        const error = write.data as { id: string; subscriptionId: string; observableId: string; error: unknown; timestamp: number };
-        this._events$.next({
-          type: 'error',
-          timestamp: error.timestamp,
-          subscriptionId: error.subscriptionId,
-          observableId: error.observableId,
-          error: error.error,
-        });
-      }
+      // Process async to avoid recursive loops
+      // (writeQueue$ emission -> React update -> new subscription -> writeQueue$ emission)
+      queueMicrotask(() => this.handleWrite(write));
     });
 
-    this.subscriptions.push(sub);
+    this.internalSubs.push(sub);
   }
 
-  private updateObservables(newMeta: ObservableMetadata): void {
+  private handleWrite(write: { store: string; key: string; data: any }): void {
+    // Track new or updated observables
+    if (write.store === 'observables') {
+      const meta = write.data as ObservableMetadata;
+      if (!this.seenObservableIds.has(meta.id)) {
+        // New observable
+        this.seenObservableIds.add(meta.id);
+        this.addObservable(meta);
+      } else {
+        // Updated observable (e.g., __track$ added variableName)
+        this.updateObservable(meta);
+      }
+    }
+
+    // Emit subscription events
+    if (write.store === 'subscriptions') {
+      const meta = write.data as SubscriptionMetadata;
+      this._events$.next({
+        type: 'subscribe',
+        timestamp: meta.subscribedAt,
+        subscriptionId: meta.id,
+        observableId: meta.observableId,
+      });
+    }
+
+    // Emit emission events
+    if (write.store === 'emissions') {
+      const emission = write.data as { id: string; subscriptionId: string; observableId: string; value: unknown; timestamp: number };
+      this._events$.next({
+        type: 'next',
+        timestamp: emission.timestamp,
+        subscriptionId: emission.subscriptionId,
+        observableId: emission.observableId,
+        value: emission.value,
+      });
+    }
+
+    // Emit error events
+    if (write.store === 'errors') {
+      const error = write.data as { id: string; subscriptionId: string; observableId: string; error: unknown; timestamp: number };
+      this._events$.next({
+        type: 'error',
+        timestamp: error.timestamp,
+        subscriptionId: error.subscriptionId,
+        observableId: error.observableId,
+        error: error.error,
+      });
+    }
+  }
+
+  private addObservable(newMeta: ObservableMetadata): void {
     const current = this._observables$.getValue();
     this._observables$.next([...current, newMeta]);
+  }
+
+  private updateObservable(updatedMeta: ObservableMetadata): void {
+    const current = this._observables$.getValue();
+    const updated = current.map(obs =>
+      obs.id === updatedMeta.id ? { ...obs, ...updatedMeta } : obs
+    );
+    this._observables$.next(updated);
   }
 
   private updateSubscriptions(): void {

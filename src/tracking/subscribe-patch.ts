@@ -38,6 +38,9 @@ let isPatched = false;
 // Symbol to store tracking ID on subscription instances
 const TRACKING_ID = Symbol('rxjs-devtools-sub-id');
 
+// Guard against recursive emission handling
+let inEmissionHandler = false;
+
 // Current config (subscribed reactively)
 let currentConfig = trackingConfig$.getValue();
 trackingConfig$.subscribe((config) => {
@@ -68,6 +71,11 @@ export function patchSubscribe(): void {
     error?: ((error: any) => void) | null,
     complete?: (() => void) | null
   ): Subscription {
+    // If tracking is disabled globally, just call original - no decoration
+    if (!currentConfig.enabled) {
+      return (originalSubscribe as Function).call(this, observerOrNext, error, complete);
+    }
+
     // Generate ID for this subscription
     const subId = generateSubscriptionId();
 
@@ -116,6 +124,8 @@ export function patchSubscribe(): void {
     const wrappedObserver = wrapObserver(
       subId,
       obsId,
+      parentSubId,
+      depth,
       observerOrNext,
       error,
       complete
@@ -171,6 +181,8 @@ export function patchSubscribe(): void {
 function wrapObserver(
   subId: string,
   obsId: string,
+  parentSubId: string | undefined,
+  depth: number,
   observerOrNext?: Partial<Observer<any>> | ((value: any) => void) | null,
   errorFn?: ((error: any) => void) | null,
   completeFn?: (() => void) | null
@@ -190,6 +202,15 @@ function wrapObserver(
     originalComplete = observerOrNext.complete?.bind(observerOrNext);
   }
 
+  // Create context to push during emission handling
+  // This allows inner observables created in operators like switchMap to see the context
+  const emissionContext: SubscriptionContext = {
+    subscriptionId: subId,
+    observableId: obsId,
+    parentSubscriptionId: parentSubId,
+    depth,
+  };
+
   return {
     next: (value: any) => {
       // Track emission if enabled
@@ -203,7 +224,23 @@ function wrapObserver(
         };
         recordEmission(emission);
       }
-      originalNext?.(value);
+
+      // CRITICAL: Push subscription context during emission handling
+      // This allows switchMap/mergeMap project functions to see which subscription triggered them
+      // Guard against recursion (internal subscriptions like writeQueue$)
+      if (inEmissionHandler) {
+        originalNext?.(value);
+        return;
+      }
+
+      inEmissionHandler = true;
+      subscriptionContext.push(emissionContext);
+      try {
+        originalNext?.(value);
+      } finally {
+        subscriptionContext.pop();
+        inEmissionHandler = false;
+      }
     },
     error: (err: any) => {
       // Track error if enabled

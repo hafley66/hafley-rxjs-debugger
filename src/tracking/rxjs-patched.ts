@@ -15,10 +15,13 @@ import { Observable } from './observable-wrapper';
 import {
   generateObservableId,
   observableMetadata,
+  operatorContext,
 } from './registry';
 import { writeQueue$ } from './storage';
 import { getCallerInfo } from './stack-parser';
 import { patchPipe } from './pipe-patch';
+import { patchSubscribe } from './subscribe-patch';
+import { isTrackingEnabled } from './config';
 import type { ObservableMetadata } from './types';
 
 // Import argument-detecting wrappers for combination functions
@@ -32,12 +35,16 @@ import {
   onErrorResumeNext as argOnErrorResumeNext,
 } from './argument-detection';
 
-// Apply pipe patch when this module loads
+// Apply patches when this module loads
 patchPipe();
-console.log('[rxjs-patched] pipe() patched');
+patchSubscribe();
+console.log('[rxjs-patched] pipe() and subscribe() patched');
 
 /**
  * Wrap a creation function to register the returned observable
+ *
+ * CRITICAL: Checks operatorContext to link inner observables to their parent operator.
+ * Without this, from() inside switchMap wouldn't know it was created by switchMap.
  */
 function wrapCreation<T extends (...args: any[]) => rx.Observable<any>>(
   fn: T,
@@ -45,6 +52,25 @@ function wrapCreation<T extends (...args: any[]) => rx.Observable<any>>(
 ): T {
   return ((...args: any[]) => {
     const obs = fn(...args);
+
+    // If tracking is disabled, just return the observable without registration
+    if (!isTrackingEnabled()) {
+      return obs;
+    }
+
+    // THE KEY: Check operator execution context
+    // If stack is empty -> pipe/module time creation (static)
+    // If stack has entries -> subscribe-time creation (dynamic, e.g., from() inside switchMap)
+    const ctx = operatorContext.peek();
+
+    // DEBUG: Log when from() is called with context
+    if (ctx) {
+      console.log(`[wrapCreation] ${name}() called with operatorContext:`, {
+        operatorName: ctx.operatorName,
+        observableId: ctx.observableId,
+        subscriptionId: ctx.subscriptionId,
+      });
+    }
 
     // Register if not already registered
     if (!observableMetadata.has(obs)) {
@@ -61,6 +87,14 @@ function wrapCreation<T extends (...args: any[]) => rx.Observable<any>>(
         variableName: callerInfo?.context || name,
         operators: [],
         path: '',
+
+        // Dynamic context (only set if created during operator execution)
+        // Links this observable to its parent operator (e.g., switchMap -> from)
+        createdByOperator: ctx?.operatorName,
+        operatorInstanceId: ctx?.operatorInstanceId,
+        triggeredBySubscription: ctx?.subscriptionId,
+        triggeredByObservable: ctx?.observableId,
+        triggeredByEvent: ctx?.event,
       };
 
       observableMetadata.set(obs, metadata);

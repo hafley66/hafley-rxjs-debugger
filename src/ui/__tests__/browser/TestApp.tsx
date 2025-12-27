@@ -10,8 +10,7 @@ import { BehaviorSubject, from, interval } from 'rxjs';
 import { switchMap, take, shareReplay, filter } from 'rxjs/operators';
 import { PipeTree } from '@ui/3_components/PipeTree';
 import { InlineProvider } from '@ui/1_data/inline';
-import type { GraphState } from '@ui/0_types';
-import type { ObservableMetadata } from '@tracking/types';
+import { activeOnly$, type PipeTreeState } from '@ui/1_data/pipe-tree';
 
 // ============ Fake API Layer ============
 
@@ -28,7 +27,7 @@ interface Post {
 }
 
 // Fake fetch that returns mock data after a delay
-function fakeFetch<T>(url: string, data: T, delayMs = 300): Promise<T> {
+function fakeFetch<T>(_url: string, data: T, delayMs = 300): Promise<T> {
   return new Promise(resolve => setTimeout(() => resolve(data), delayMs));
 }
 
@@ -82,35 +81,35 @@ const notifications$ = interval(2000).pipe(
 const provider = new InlineProvider();
 
 // Debug: log what we're getting
-provider.graph$.subscribe(g => {
+provider.graph$.subscribe((g: { nodes: { label: string }[]; edges: unknown[] }) => {
   console.log('[TestApp] graph update:', g.nodes.length, 'nodes,', g.edges.length, 'edges');
   if (g.nodes.length > 0) {
-    console.log('[TestApp] nodes:', g.nodes.map(n => n.label));
+    console.log('[TestApp] nodes:', g.nodes.map((n) => n.label));
   }
 });
 
 // ============ React Hooks ============
 
-function useGraphState() {
-  const [graphState, setGraphState] = useState<GraphState>({ nodes: [], edges: [] });
+function usePipeTree() {
+  const [state, setState] = useState<PipeTreeState>({ roots: [], activeCount: 0, totalCount: 0 });
 
   useEffect(() => {
-    const sub = provider.graph$.subscribe(setGraphState);
+    const sub = provider.pipeTree$.subscribe(setState);
     return () => sub.unsubscribe();
   }, []);
 
-  return graphState;
+  return state;
 }
 
-function useObservables() {
-  const [observables, setObservables] = useState<ObservableMetadata[]>([]);
+function useActiveOnly() {
+  const [active, setActive] = useState(activeOnly$.getValue());
 
   useEffect(() => {
-    const sub = provider.observables$.subscribe(setObservables);
+    const sub = activeOnly$.subscribe(setActive);
     return () => sub.unsubscribe();
   }, []);
 
-  return observables;
+  return active;
 }
 
 function useApiData() {
@@ -141,8 +140,8 @@ function useApiData() {
 
 export function TestApp() {
   const { profile, posts, notifications } = useApiData();
-  const graphState = useGraphState();
-  const observables = useObservables();
+  const pipeTree = usePipeTree();
+  const activeOnly = useActiveOnly();
 
   return (
     <div style={{ fontFamily: 'system-ui', padding: 20, background: '#0f172a', color: '#e2e8f0', width: '90vw', minHeight: '90vh' }}>
@@ -180,10 +179,18 @@ export function TestApp() {
 
       {/* Pipe Tree visualization */}
       <div style={{ background: '#1e293b', borderRadius: 8, overflow: 'hidden', padding: 16 }}>
-        <div style={{ marginBottom: 12, fontSize: 14, color: '#9ca3af' }}>
-          Observable Pipe Tree ({observables.length} observables)
+        <div style={{ marginBottom: 12, fontSize: 14, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span>Observable Pipe Tree ({pipeTree.activeCount} active / {pipeTree.totalCount} total)</span>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input
+              type="checkbox"
+              checked={activeOnly}
+              onChange={(e) => activeOnly$.next(e.target.checked)}
+            />
+            Active only
+          </label>
         </div>
-        <PipeTree observables={observables} />
+        <PipeTree state={pipeTree} />
       </div>
     </div>
   );

@@ -138,9 +138,11 @@ export function rxjsTrackPlugin(options: RxjsTrackPluginOptions = {}): Plugin {
       if (!hasTransforms) {
         const patterns = [
           // const foo$ = of(...) | from(...) | interval(...) etc.
-          /const\s+(\w+\$?)\s*=\s*(of|from|interval|timer|defer|range|combineLatest|merge|forkJoin|zip|race|concat)\s*\(/g,
-          // const foo$ = new Subject() | new BehaviorSubject() etc.
-          /const\s+(\w+\$?)\s*=\s*new\s+(Subject|BehaviorSubject|ReplaySubject|AsyncSubject)\s*\(/g,
+          // Also handles generics like of<T>(...)
+          /const\s+(\w+\$?)\s*=\s*(of|from|interval|timer|defer|range|combineLatest|merge|forkJoin|zip|race|concat)\s*(?:<[^>]*>)?\s*\(/g,
+          // const foo$ = new Subject() | new BehaviorSubject<T>() etc.
+          // Handles TypeScript generics like new BehaviorSubject<User | null>(...)
+          /const\s+(\w+\$?)\s*=\s*new\s+(Subject|BehaviorSubject|ReplaySubject|AsyncSubject)\s*(?:<[^>]*>)?\s*\(/g,
           // const foo$ = source$.pipe(...)
           /const\s+(\w+\$?)\s*=\s*(\w+)\$?\.pipe\s*\(/g,
         ];
@@ -182,8 +184,8 @@ export function rxjsTrackPlugin(options: RxjsTrackPluginOptions = {}): Plugin {
         return null;
       }
 
-      // Add import for __track$ at the top
-      if (needsTrackImport) {
+      // Add import for __track$ at the top (only if not already present)
+      if (needsTrackImport && !code.includes('__track$')) {
         s.prepend(`import { __track$ } from '${trackImport}';\n`);
       }
 

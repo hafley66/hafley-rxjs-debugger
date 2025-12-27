@@ -96,18 +96,29 @@ export function generateSubscriptionId(): string {
  * @param obs - The Observable instance to register
  * @param metadata - The metadata to associate with this observable
  */
+// Guard against recursive writeQueue$ emissions
+let inWriteQueue = false;
+
 export function registerObservable(obs: any, metadata: ObservableMetadata): void {
   observableMetadata.set(obs, metadata);
   observableById.set(metadata.id, new WeakRef(obs));
 
   // Emit to writeQueue$ so InlineProvider can track it
-  // Strip WeakRef (parent) before saving - can't be serialized to IndexedDB
-  const { parent, ...serializableMetadata } = metadata;
-  writeQueue$.next({
-    store: 'observables',
-    key: metadata.id,
-    data: serializableMetadata,
-  });
+  // Guard against recursion (writeQueue$ subscribers might register more observables)
+  if (!inWriteQueue) {
+    inWriteQueue = true;
+    try {
+      // Strip WeakRef (parent) before saving - can't be serialized to IndexedDB
+      const { parent, ...serializableMetadata } = metadata;
+      writeQueue$.next({
+        store: 'observables',
+        key: metadata.id,
+        data: serializableMetadata,
+      });
+    } finally {
+      inWriteQueue = false;
+    }
+  }
 }
 
 /**

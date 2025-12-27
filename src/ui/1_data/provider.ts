@@ -14,6 +14,7 @@ import type {
   SubscriptionMetadata,
   GraphState,
 } from '../0_types';
+import type { PipeTreeState } from './pipe-tree';
 
 /**
  * Abstract interface for accessing tracking data.
@@ -43,6 +44,12 @@ export interface DataProvider {
    * Combines observables and subscriptions into nodes/edges.
    */
   graph$: Observable<GraphState>;
+
+  /**
+   * Pre-computed pipe tree state for rendering.
+   * Combines observables and subscriptions, filters by active status.
+   */
+  pipeTree$: Observable<PipeTreeState>;
 
   /**
    * Get observable by ID (synchronous snapshot).

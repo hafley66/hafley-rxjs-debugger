@@ -44,6 +44,9 @@ export interface ObservableMetadata {
   /** Reference to parent observable in a pipe chain (using WeakRef to allow GC) */
   parent?: WeakRef<any>;
 
+  /** Serializable parent ID (since WeakRef can't be serialized to storage) */
+  parentId?: string;
+
   /** Array of operator names applied via pipe() */
   operators: string[];
 

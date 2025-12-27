@@ -1,0 +1,68 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`higher-order operator context wrapping > patched creation functions inside higher-order operators > should track multiple from() calls inside switchMap from multiple emissions > multiple from() calls metadata 1`] = `
+[
+  {
+    "createdByOperator": "switchMap",
+    "id": "obs#2",
+    "triggeredByObservable": "obs#0",
+    "triggeredBySubscription": "sub#1",
+  },
+  {
+    "createdByOperator": "switchMap",
+    "id": "obs#3",
+    "triggeredByObservable": "obs#0",
+    "triggeredBySubscription": "sub#1",
+  },
+  {
+    "createdByOperator": "switchMap",
+    "id": "obs#4",
+    "triggeredByObservable": "obs#0",
+    "triggeredBySubscription": "sub#1",
+  },
+]
+`;
+
+exports[`higher-order operator context wrapping > switchMap > should mark inner observables with createdByOperator: switchMap > inner observable metadata 1`] = `
+{
+  "createdAt": 0,
+  "createdByOperator": "switchMap",
+  "id": "obs#2",
+  "location": {
+    "column": 22,
+    "filePath": "/Users/chrishafley/projects/hafley-rxjs-debugger/src/tracking/__tests__/higher-order-wrapper.test.ts",
+    "line": 50,
+  },
+  "operatorInstanceId": "op#0",
+  "operators": [],
+  "path": "",
+  "pipeGroupId": undefined,
+  "triggeredByEvent": "next",
+  "triggeredByObservable": "obs#0",
+  "triggeredBySubscription": "sub#1",
+  "variableName": undefined,
+}
+`;
+
+exports[`higher-order operator context wrapping > switchMap > should track multiple inner observables from multiple emissions > multiple inner observables metadata 1`] = `
+[
+  {
+    "createdByOperator": "switchMap",
+    "id": "obs#2",
+    "operatorInstanceId": "op#0",
+    "triggeredByObservable": "obs#0",
+  },
+  {
+    "createdByOperator": "switchMap",
+    "id": "obs#3",
+    "operatorInstanceId": "op#0",
+    "triggeredByObservable": "obs#0",
+  },
+  {
+    "createdByOperator": "switchMap",
+    "id": "obs#4",
+    "operatorInstanceId": "op#0",
+    "triggeredByObservable": "obs#0",
+  },
+]
+`;
