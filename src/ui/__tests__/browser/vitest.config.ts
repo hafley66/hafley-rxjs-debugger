@@ -1,9 +1,39 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { playwright } from '@vitest/browser-playwright';
+import path from 'path';
+
+const srcDir = path.resolve(__dirname, '../../..');
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    // Custom plugin to redirect rxjs imports (except from tracking folder)
+    {
+      name: 'rxjs-redirect',
+      enforce: 'pre',
+      resolveId(source, importer) {
+        // Don't redirect imports from within tracking folder (avoids cycle)
+        if (importer?.includes('/tracking/')) {
+          return null;
+        }
+        if (source === 'rxjs') {
+          return { id: path.resolve(srcDir, 'tracking/rxjs-patched.ts') };
+        }
+        if (source === 'rxjs/operators') {
+          return { id: path.resolve(srcDir, 'tracking/operators.ts') };
+        }
+        return null;
+      },
+    },
+    react(),
+  ],
+  resolve: {
+    alias: {
+      '@': srcDir,
+      '@ui': path.resolve(srcDir, 'ui'),
+      '@tracking': path.resolve(srcDir, 'tracking'),
+    },
+  },
   test: {
     browser: {
       enabled: true,

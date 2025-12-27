@@ -197,11 +197,20 @@ export class InlineProvider implements DataProvider {
 
     // Create observable nodes
     for (const meta of observables) {
-      const operatorName = meta.operators[meta.operators.length - 1] ?? meta.subjectType ?? 'observable';
+      // Build label: primary name + context suffix
+      const operatorName = meta.operators[meta.operators.length - 1];
+      const primaryName = meta.variableName
+        || operatorName
+        || meta.subjectType
+        || (meta.createdByOperator ? `inner` : 'observable');
+      // Add context suffix if this is a dynamic inner observable
+      const contextSuffix = meta.createdByOperator && !operatorName
+        ? ` (of ${meta.createdByOperator})`
+        : '';
       nodes.push({
         id: meta.id,
         type: 'observable',
-        label: `${meta.id} ${operatorName}`,
+        label: `${meta.id} ${primaryName}${contextSuffix}`,
         metadata: meta,
         isActive: true,
         isRoot: !meta.triggeredBySubscription && !meta.lazyRegistered,

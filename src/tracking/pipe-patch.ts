@@ -49,7 +49,6 @@ export function getOperatorName(operator: any): string {
     return operator.name;
   }
 
-  // Fallback
   return 'operator';
 }
 

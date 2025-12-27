@@ -35,17 +35,16 @@ function TreeNode({ node, depth = 0 }: { node: PipeNode; depth?: number }) {
   const primaryName = obs.variableName
     || obs.subjectType
     || ownOperator
-    || obs.createdByOperator
+    || (obs.createdByOperator ? 'inner' : null)
     || (obs.parentId ? 'piped' : obs.id);
 
-  // Secondary label: show operator if we have variableName, or context for dynamic inners
-  const secondaryLabel = obs.variableName && ownOperator
-    ? `(${ownOperator})`
-    : obs.subjectType
-      ? `(${obs.subjectType})`
-      : obs.createdByOperator && !ownOperator
-        ? `(inner of ${obs.createdByOperator})`
-        : '';
+  // Secondary label: show operator if we have variableName, or dynamic context
+  // Always show "(of X)" for inner observables from higher-order operators
+  const secondaryLabel = obs.createdByOperator && !ownOperator
+    ? `(of ${obs.createdByOperator})`
+    : obs.variableName && ownOperator
+      ? `(${ownOperator})`
+      : '';
 
   return (
     <div style={{ marginLeft: indent }}>

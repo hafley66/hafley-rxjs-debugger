@@ -38,7 +38,6 @@ import {
 // Apply patches when this module loads
 patchPipe();
 patchSubscribe();
-console.log('[rxjs-patched] pipe() and subscribe() patched');
 
 /**
  * Wrap a creation function to register the returned observable
@@ -63,17 +62,27 @@ function wrapCreation<T extends (...args: any[]) => rx.Observable<any>>(
     // If stack has entries -> subscribe-time creation (dynamic, e.g., from() inside switchMap)
     const ctx = operatorContext.peek();
 
-    // DEBUG: Log when from() is called with context
-    if (ctx) {
-      console.log(`[wrapCreation] ${name}() called with operatorContext:`, {
-        operatorName: ctx.operatorName,
-        observableId: ctx.observableId,
-        subscriptionId: ctx.subscriptionId,
-      });
-    }
+    // Check if already registered (e.g., by OObservable constructor)
+    const existing = observableMetadata.get(obs);
 
-    // Register if not already registered
-    if (!observableMetadata.has(obs)) {
+    if (existing) {
+      // Update existing metadata with operator context if we have it
+      if (ctx && !existing.createdByOperator) {
+        existing.createdByOperator = ctx.operatorName;
+        existing.operatorInstanceId = ctx.operatorInstanceId;
+        existing.triggeredBySubscription = ctx.subscriptionId;
+        existing.triggeredByObservable = ctx.observableId;
+        existing.triggeredByEvent = ctx.event;
+
+        // Update in storage
+        const { parent, ...serializableMetadata } = existing;
+        writeQueue$.next({
+          store: 'observables',
+          key: existing.id,
+          data: serializableMetadata,
+        });
+      }
+    } else {
       const callerInfo = getCallerInfo();
 
       const metadata: ObservableMetadata = {

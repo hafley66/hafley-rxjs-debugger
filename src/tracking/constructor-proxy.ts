@@ -31,14 +31,11 @@ function proxyConstructor<T extends new (...args: any[]) => any>(
 ): T {
   return new Proxy(Original, {
     construct(target, args, newTarget) {
-      console.log(`[constructor-proxy] new ${className}() called`);
-
       // Create the instance normally
       const instance = Reflect.construct(target, args, newTarget);
 
       // Only register if tracking is enabled
       if (!isTrackingEnabled()) {
-        console.log(`[constructor-proxy] tracking disabled, skipping`);
         return instance;
       }
 
@@ -49,7 +46,6 @@ function proxyConstructor<T extends new (...args: any[]) => any>(
 
       // Register with metadata linking to creator
       const id = generateObservableId();
-      console.log(`[constructor-proxy] registering ${className} as ${id}`);
       registerObservable(instance, {
         id,
         createdAt: Date.now(),

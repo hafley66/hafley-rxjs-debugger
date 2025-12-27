@@ -33,12 +33,8 @@ function fakeFetch<T>(_url: string, data: T, delayMs = 300): Promise<T> {
 
 // ============ RxJS Service Layer (TRACKED) ============
 
-// Debug: check if BehaviorSubject is from our patched version
-console.log('[TestApp] BehaviorSubject:', BehaviorSubject.toString().slice(0, 100));
-
 // Session state - null means not logged in
 const session$ = new BehaviorSubject<User | null>(null);
-console.log('[TestApp] session$ created:', session$);
 
 // User profile - cached with shareReplay, re-fetches when session changes
 const userProfile$ = session$.pipe(
@@ -79,14 +75,6 @@ const notifications$ = interval(2000).pipe(
 // ============ Data Provider (reads from actual tracking registry) ============
 
 const provider = new InlineProvider();
-
-// Debug: log what we're getting
-provider.graph$.subscribe((g: { nodes: { label: string }[]; edges: unknown[] }) => {
-  console.log('[TestApp] graph update:', g.nodes.length, 'nodes,', g.edges.length, 'edges');
-  if (g.nodes.length > 0) {
-    console.log('[TestApp] nodes:', g.nodes.map((n) => n.label));
-  }
-});
 
 // ============ React Hooks ============
 
