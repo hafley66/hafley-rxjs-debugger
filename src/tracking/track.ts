@@ -28,7 +28,7 @@
  */
 
 import type { Observable, OperatorFunction } from 'rxjs';
-import { observableMetadata, getMetadata } from './registry';
+import { getMetadata } from './registry';
 import { writeQueue$ } from './storage';
 
 /**
@@ -176,4 +176,38 @@ export function trackMany(annotations: Array<[Observable<any>, TrackMetadata]>):
   for (const [obs, meta] of annotations) {
     track$(obs, meta);
   }
+}
+
+/**
+ * Compact tracking function for auto-instrumentation
+ *
+ * Used by vite-plugin to inject minimal overhead tracking.
+ * Uses short property names to minimize bundle size.
+ *
+ * @param obs - The observable to track
+ * @param meta - Compact metadata: { n: name, f: file, l: line }
+ */
+export interface CompactMeta {
+  /** name */
+  n: string;
+  /** file */
+  f?: string;
+  /** line */
+  l?: number;
+}
+
+export function __track$<T>(obs: T, meta: CompactMeta): T {
+  // Expand compact meta to full format
+  const fullMeta: TrackMetadata = {
+    name: meta.n,
+    file: meta.f,
+    line: meta.l,
+  };
+
+  // If it's an observable, apply annotation
+  if (isObservable(obs)) {
+    applyAnnotation(obs, fullMeta);
+  }
+
+  return obs;
 }

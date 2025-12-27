@@ -16,10 +16,6 @@ import type { DataProvider } from './1_data/provider';
 export interface MountOptions {
   /** Custom data provider (defaults to InlineProvider) */
   provider?: DataProvider;
-  /** Width of the visualization */
-  width?: number;
-  /** Height of the visualization */
-  height?: number;
   /** Use Shadow DOM for style isolation (default: true) */
   useShadowDOM?: boolean;
 }
@@ -64,7 +60,7 @@ const BASE_STYLES = `
  * ```
  */
 export function mount(container: HTMLElement, options: MountOptions = {}): MountResult {
-  const { provider, width, height, useShadowDOM = true } = options;
+  const { provider, useShadowDOM = true } = options;
 
   let root: Root;
   let renderTarget: HTMLElement;
@@ -88,7 +84,7 @@ export function mount(container: HTMLElement, options: MountOptions = {}): Mount
 
   // Create React root and render
   root = createRoot(renderTarget);
-  root.render(createElement(App, { provider, width, height }));
+  root.render(createElement(App, { provider }));
 
   return {
     unmount: () => {
