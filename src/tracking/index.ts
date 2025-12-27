@@ -9,3 +9,4 @@ export * from './pipe-patch';
 export * from './subscribe-patch';
 export * from './storage';
 export * from './stack-parser';
+export * from './track';
