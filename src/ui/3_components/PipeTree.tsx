@@ -31,19 +31,21 @@ function TreeNode({ node, depth = 0 }: { node: PipeNode; depth?: number }) {
   // Get just this observable's operator (last in chain)
   const ownOperator = getOwnOperator(obs);
 
-  // Primary name: variableName, subjectType, or operator
+  // Primary name priority: variableName > subjectType > operator > creationFn > fallback
   const primaryName = obs.variableName
     || obs.subjectType
     || ownOperator
-    || (obs.createdByOperator ? 'inner' : null)
+    || obs.creationFn
     || (obs.parentId ? 'piped' : obs.id);
 
-  // Secondary label: show operator if we have variableName, or dynamic context
-  // Always show "(of X)" for inner observables from higher-order operators
-  const secondaryLabel = obs.createdByOperator && !ownOperator
+  // Secondary label: context info
+  // - Inner observables show "(of switchMap)" etc.
+  // - Named observables show full operator chain: (filter → switchMap → shareReplay)
+  // - Unnamed piped observables don't need secondary (operator is primary)
+  const secondaryLabel = obs.createdByOperator
     ? `(of ${obs.createdByOperator})`
-    : obs.variableName && ownOperator
-      ? `(${ownOperator})`
+    : obs.variableName && obs.operators.length > 0
+      ? `(${obs.operators.join(' → ')})`
       : '';
 
   return (

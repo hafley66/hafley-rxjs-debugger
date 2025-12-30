@@ -22,9 +22,11 @@ import {
   activeSubscriptions,
   archivedSubscriptions,
   getObservableById,
+  getAllObservableMetadata,
 } from '../../tracking/registry';
 import { writeQueue$ } from '../../tracking/storage';
 import { createPipeTree$, type PipeTreeState } from './pipe-tree';
+import { createTimeline$, type TimelineState } from './2_timeline';
 
 /**
  * Poll interval for registry changes (ms).
@@ -48,6 +50,7 @@ export class InlineProvider implements DataProvider {
   readonly events$: Observable<TrackingEvent>;
   readonly graph$: Observable<GraphState>;
   readonly pipeTree$: Observable<PipeTreeState>;
+  readonly timeline$: Observable<TimelineState>;
 
   private readonly internalSubs: Subscription[] = [];
   private readonly seenObservableIds = new Set<string>();
@@ -64,12 +67,30 @@ export class InlineProvider implements DataProvider {
 
     // Create derived streams (FRP transforms)
     this.pipeTree$ = createPipeTree$(this.observables$, this.subscriptions$);
+    this.timeline$ = createTimeline$(this.observables$, this.subscriptions$, this.events$);
+
+    // Sync initial state from registry (for observables created before we subscribed)
+    this.syncInitialState();
 
     this.setupPolling();
     this.setupEventStream();
 
     // Re-enable tracking
     enableTracking();
+  }
+
+  /**
+   * Sync initial state from the registry.
+   * This catches observables that were created before we started listening.
+   */
+  private syncInitialState(): void {
+    const allMeta = getAllObservableMetadata();
+    for (const meta of allMeta) {
+      if (!this.seenObservableIds.has(meta.id)) {
+        this.seenObservableIds.add(meta.id);
+        this.addObservable(meta);
+      }
+    }
   }
 
   getObservable(id: string): ObservableMetadata | undefined {
@@ -109,9 +130,7 @@ export class InlineProvider implements DataProvider {
    */
   private setupEventStream(): void {
     const sub = writeQueue$.subscribe((write) => {
-      // Process async to avoid recursive loops
-      // (writeQueue$ emission -> React update -> new subscription -> writeQueue$ emission)
-      queueMicrotask(() => this.handleWrite(write));
+      this.handleWrite(write);
     });
 
     this.internalSubs.push(sub);
@@ -202,9 +221,10 @@ export class InlineProvider implements DataProvider {
       const primaryName = meta.variableName
         || operatorName
         || meta.subjectType
-        || (meta.createdByOperator ? `inner` : 'observable');
+        || meta.creationFn
+        || 'observable';
       // Add context suffix if this is a dynamic inner observable
-      const contextSuffix = meta.createdByOperator && !operatorName
+      const contextSuffix = meta.createdByOperator
         ? ` (of ${meta.createdByOperator})`
         : '';
       nodes.push({

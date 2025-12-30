@@ -72,6 +72,7 @@ export function computeActiveTreeIds(
  * 1. Roots: observables with no parent, no triggeredBy*, and not internal
  * 2. Pipe children: observables with `parentId` (from .pipe())
  * 3. Dynamic children: observables with `triggeredByObservable` (from switchMap, etc.)
+ * 4. Phantom parents: create nodes for GC'd parents using stored parentInfo
  */
 export function buildPipeTree(
   observables: ObservableMetadata[],
@@ -83,21 +84,61 @@ export function buildPipeTree(
     byId.set(obs.id, obs);
   }
 
+  // Create phantom nodes for GC'd parents using parentInfo
+  const phantomIds = new Set<string>();
+  for (const obs of observables) {
+    if (obs.parentInfo && !byId.has(obs.parentInfo.id)) {
+      // Parent was GC'd but we have its info - create phantom metadata
+      const phantom: ObservableMetadata = {
+        id: obs.parentInfo.id,
+        createdAt: 0, // Unknown
+        variableName: obs.parentInfo.variableName,
+        creationFn: obs.parentInfo.creationFn,
+        subjectType: obs.parentInfo.subjectType as ObservableMetadata['subjectType'],
+        operators: obs.parentInfo.operators || [],
+        path: '',
+      };
+      byId.set(phantom.id, phantom);
+      phantomIds.add(phantom.id);
+    }
+  }
+
   // Build children map
   const childrenByParentId = new Map<string, ObservableMetadata[]>();
   const roots: ObservableMetadata[] = [];
+
+  // Add phantom nodes as roots (they have no parent themselves)
+  // Include phantom if any child references it in the active tree
+  for (const phantomId of phantomIds) {
+    const phantom = byId.get(phantomId)!;
+    if (!activeTreeIds) {
+      roots.push(phantom);
+    } else {
+      // Check if any observable in active tree has this phantom as parent
+      const hasActiveChild = observables.some(
+        obs => activeTreeIds.has(obs.id) && obs.parentId === phantomId
+      );
+      if (hasActiveChild) {
+        roots.push(phantom);
+      }
+    }
+  }
 
   // Categorize each observable
   for (const obs of observables) {
     // Skip internal subjects (from share/shareReplay)
     if (obs.isInternalSubject) continue;
 
-    // Skip lazy-registered observables with no context (internal RxJS observables)
+    // Skip lazy-registered internal observables with no useful metadata
+    // These are internal RxJS mechanism observables (e.g., shareReplay internals)
+    // that get registered at subscribe time but aren't user-created
     if (obs.lazyRegistered &&
-        !obs.parentId &&
-        !obs.createdByOperator &&
-        !obs.triggeredByObservable &&
-        !obs.variableName) {
+        !obs.variableName &&      // No user-assigned name
+        !obs.subjectType &&       // Not a Subject
+        !obs.creationFn &&        // Didn't go through our wrapped creators
+        !obs.createdByOperator && // Not from switchMap/mergeMap project fn
+        !obs.parentId &&          // Not from .pipe()
+        (obs.operators?.length || 0) === 0) { // No operators applied
       continue;
     }
 
@@ -109,14 +150,19 @@ export function buildPipeTree(
     const hasParent = obs.parentId !== undefined && obs.parentId !== 'unknown';
     const hasDynamicParent = obs.triggeredByObservable !== undefined;
 
-    if (!hasParent && !hasDynamicParent) {
+    // Check if parent actually exists (might have been GC'd)
+    const parentExists = hasParent && byId.has(obs.parentId!);
+    const dynamicParentExists = hasDynamicParent && byId.has(obs.triggeredByObservable!);
+
+    if ((!hasParent && !hasDynamicParent) || (hasParent && !parentExists && !dynamicParentExists)) {
+      // Root: no parent, or parent not tracked (unknown), or parent truly GC'd without parentInfo
       roots.push(obs);
-    } else if (hasDynamicParent && obs.triggeredByObservable) {
+    } else if (dynamicParentExists && obs.triggeredByObservable) {
       const parentId = obs.triggeredByObservable;
       const children = childrenByParentId.get(parentId) || [];
       children.push(obs);
       childrenByParentId.set(parentId, children);
-    } else if (hasParent && obs.parentId) {
+    } else if (parentExists && obs.parentId) {
       const children = childrenByParentId.get(obs.parentId) || [];
       children.push(obs);
       childrenByParentId.set(obs.parentId, children);

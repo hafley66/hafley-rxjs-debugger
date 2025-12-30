@@ -5,85 +5,85 @@
  * and rxjs-patched.ts to test the full pipeline.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BehaviorSubject, from } from '../rxjs-patched';
-import { switchMap, filter, shareReplay } from '../operators';
-import { observableMetadata, resetRegistry } from '../registry';
-import { patchPipe } from '../pipe-patch';
-import { patchSubscribe } from '../subscribe-patch';
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { filter, shareReplay, switchMap } from "../operators"
+import { patchPipe } from "../pipe-patch"
+import { observableMetadata, resetRegistry } from "../registry"
+import { BehaviorSubject, from } from "../rxjs-patched"
+import { patchSubscribe } from "../subscribe-patch"
 
-describe('browser scenario - TestApp pattern', () => {
+describe("browser scenario - TestApp pattern", () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(0);
-    resetRegistry();
-    patchPipe();
-    patchSubscribe();
-  });
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    resetRegistry()
+    patchPipe()
+    patchSubscribe()
+  })
 
-  it('should track from() inside switchMap with createdByOperator', async () => {
+  it("should track from() inside switchMap with createdByOperator", async () => {
     // Mimic TestApp pattern exactly
-    const session$ = new BehaviorSubject<{ id: number } | null>(null);
+    const session$ = new BehaviorSubject<{ id: number } | null>(null)
 
-    let innerFromObs: any = null;
+    let innerFromObs: any = null
 
     const userProfile$ = session$.pipe(
       filter((user): user is { id: number } => user !== null),
       switchMap(user => {
-        innerFromObs = from(Promise.resolve({ ...user, name: 'Test' }));
-        return innerFromObs;
+        innerFromObs = from(Promise.resolve({ ...user, name: "Test" }))
+        return innerFromObs
       }),
-      shareReplay(1)
-    );
+      shareReplay(1),
+    )
 
     // Subscribe and trigger
-    const values: any[] = [];
-    userProfile$.subscribe(v => values.push(v));
+    const values: any[] = []
+    userProfile$.subscribe(v => values.push(v))
 
     // Trigger the switchMap by emitting a user
-    session$.next({ id: 1 });
+    session$.next({ id: 1 })
 
     // Let promise resolve
-    await vi.runAllTimersAsync();
+    await vi.runAllTimersAsync()
 
-    const innerMeta = observableMetadata.get(innerFromObs);
-    expect(innerMeta).toBeDefined();
-    expect(innerMeta?.createdByOperator).toEqual('switchMap');
+    const innerMeta = observableMetadata.get(innerFromObs)
+    expect(innerMeta).toBeDefined()
+    expect(innerMeta?.createdByOperator).toEqual("switchMap")
 
-    // Inner observable should have variableName from callerInfo and no operators
-    expect(innerMeta?.variableName).toEqual('from');
-    expect(innerMeta?.operators).toEqual([]);
-  });
+    // Inner observable should have creationFn (not variableName - that comes from __track$)
+    expect(innerMeta?.creationFn).toEqual("from")
+    expect(innerMeta?.operators).toEqual([])
+  })
 
-  it('should track multiple inner observables from multiple emissions', async () => {
-    const trigger$ = new BehaviorSubject<number>(0);
-    const innerObservables: any[] = [];
+  it("should track multiple inner observables from multiple emissions", async () => {
+    const trigger$ = new BehaviorSubject<number>(0)
+    const innerObservables: any[] = []
 
     const result$ = trigger$.pipe(
       filter(n => n > 0),
       switchMap(n => {
-        const inner = from(Promise.resolve(n * 10));
-        innerObservables.push(inner);
-        return inner;
-      })
-    );
+        const inner = from(Promise.resolve(n * 10))
+        innerObservables.push(inner)
+        return inner
+      }),
+    )
 
-    result$.subscribe();
+    result$.subscribe()
 
-    trigger$.next(1);
-    await vi.runAllTimersAsync();
+    trigger$.next(1)
+    await vi.runAllTimersAsync()
 
-    trigger$.next(2);
-    await vi.runAllTimersAsync();
+    trigger$.next(2)
+    await vi.runAllTimersAsync()
 
-    trigger$.next(3);
-    await vi.runAllTimersAsync();
+    trigger$.next(3)
+    await vi.runAllTimersAsync()
 
-    expect(innerObservables).toHaveLength(3);
+    expect(innerObservables).toHaveLength(3)
 
     for (const inner of innerObservables) {
-      const meta = observableMetadata.get(inner);
-      expect(meta?.createdByOperator).toEqual('switchMap');
+      const meta = observableMetadata.get(inner)
+      expect(meta?.createdByOperator).toEqual("switchMap")
     }
-  });
-});
+  })
+})

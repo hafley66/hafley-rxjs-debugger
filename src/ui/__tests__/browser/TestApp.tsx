@@ -1,185 +1,291 @@
 /**
  * Test App - Simulates API caching patterns with RxJS
  *
- * Uses REAL tracking - imports from rxjs-patched to track all observables.
+ * Uses REAL tracking - opt-in via autotrackRxjs().
+ * The presence of autotrackRxjs in this file tells the vite plugin
+ * to redirect rxjs imports to tracked versions.
  */
 
-import { useEffect, useState } from 'react';
-// Normal rxjs imports - aliased to tracking/rxjs-patched by vite
-import { BehaviorSubject, from, interval } from 'rxjs';
-import { switchMap, take, shareReplay, filter } from 'rxjs/operators';
-import { PipeTree } from '@ui/3_components/PipeTree';
-import { InlineProvider } from '@ui/1_data/inline';
-import { activeOnly$, type PipeTreeState } from '@ui/1_data/pipe-tree';
+import { autotrackRxjs } from "@tracking/autotrack"
+import { track$ } from "@tracking/track"
+import type { TimelineState } from "@ui/1_data/2_timeline"
+import { InlineProvider } from "@ui/1_data/inline"
+import { activeOnly$, type PipeTreeState } from "@ui/1_data/pipe-tree"
+import { Timeline } from "@ui/3_components/1_Timeline"
+import { PipeTree } from "@ui/3_components/PipeTree"
+import { useEffect, useState } from "react"
+// Normal rxjs imports - will be rewritten to tracked versions by vite plugin
+import { BehaviorSubject, from, interval } from "rxjs"
+import { filter, shareReplay, switchMap, take } from "rxjs/operators"
+
+// Opt-in to RxJS tracking for this file (no-op at runtime, compile-time marker)
+autotrackRxjs()
 
 // ============ Fake API Layer ============
 
 interface User {
-  id: number;
-  name: string;
-  email: string;
+  id: number
+  name: string
+  email: string
 }
 
 interface Post {
-  id: number;
-  userId: number;
-  title: string;
+  id: number
+  userId: number
+  title: string
 }
 
 // Fake fetch that returns mock data after a delay
 function fakeFetch<T>(_url: string, data: T, delayMs = 300): Promise<T> {
-  return new Promise(resolve => setTimeout(() => resolve(data), delayMs));
+  return new Promise(resolve => setTimeout(() => resolve(data), delayMs))
 }
 
 // ============ RxJS Service Layer (TRACKED) ============
 
 // Session state - null means not logged in
-const session$ = new BehaviorSubject<User | null>(null);
+// Note: Keep reference to the Subject so we can call .next()
+// track$() returns Observable<T>, losing Subject methods
+const sessionSubject$ = new BehaviorSubject<User | null>(null)
+const session$ = track$(sessionSubject$, "session$")
 
 // User profile - cached with shareReplay, re-fetches when session changes
-const userProfile$ = session$.pipe(
-  filter((user): user is User => user !== null),
-  switchMap(user =>
-    from(fakeFetch(`/api/users/${user.id}`, {
-      ...user,
-      avatar: `https://i.pravatar.cc/150?u=${user.id}`,
-      joinedAt: '2024-01-15',
-    }))
+// Note: track$() must be called AFTER pipe() since the result observable
+// isn't registered until pipe() completes
+const userProfile$ = track$(
+  session$.pipe(
+    filter((user): user is User => user !== null),
+    switchMap(user =>
+      from(
+        fakeFetch(`/api/users/${user.id}`, {
+          ...user,
+          avatar: `https://i.pravatar.cc/150?u=${user.id}`,
+          joinedAt: "2024-01-15",
+        }),
+      ),
+    ),
+    shareReplay(1),
   ),
-  shareReplay(1)
-);
+  "userProfile$",
+)
 
 // User's posts - switchMap from session, cached
-const userPosts$ = session$.pipe(
-  filter((user): user is User => user !== null),
-  switchMap(user =>
-    from(fakeFetch<Post[]>(`/api/users/${user.id}/posts`, [
-      { id: 1, userId: user.id, title: 'Getting Started with RxJS' },
-      { id: 2, userId: user.id, title: 'Understanding switchMap' },
-      { id: 3, userId: user.id, title: 'shareReplay Deep Dive' },
-    ], 500))
+const userPosts$ = track$(
+  session$.pipe(
+    filter((user): user is User => user !== null),
+    switchMap(user =>
+      from(
+        fakeFetch<Post[]>(
+          `/api/users/${user.id}/posts`,
+          [
+            { id: 1, userId: user.id, title: "Getting Started with RxJS" },
+            { id: 2, userId: user.id, title: "Understanding switchMap" },
+            { id: 3, userId: user.id, title: "shareReplay Deep Dive" },
+          ],
+          500,
+        ),
+      ),
+    ),
+    shareReplay(1),
   ),
-  shareReplay(1)
-);
+  "userPosts$",
+)
 
 // Live notifications - polls every 2 seconds
-const notifications$ = interval(2000).pipe(
-  switchMap(() =>
-    from(fakeFetch(`/api/notifications`, {
-      count: Math.floor(Math.random() * 5),
-      timestamp: new Date().toLocaleTimeString(),
-    }, 100))
-  )
-);
+const notifications$ = track$(
+  interval(2000).pipe(
+    switchMap(() =>
+      from(
+        fakeFetch(
+          `/api/notifications`,
+          {
+            count: Math.floor(Math.random() * 5),
+            timestamp: new Date().toLocaleTimeString(),
+          },
+          100,
+        ),
+      ),
+    ),
+  ),
+  "notifications$",
+)
 
 // ============ Data Provider (reads from actual tracking registry) ============
-
-const provider = new InlineProvider();
+const provider = new InlineProvider()
 
 // ============ React Hooks ============
 
 function usePipeTree() {
-  const [state, setState] = useState<PipeTreeState>({ roots: [], activeCount: 0, totalCount: 0 });
+  const [state, setState] = useState<PipeTreeState>({ roots: [], activeCount: 0, totalCount: 0 })
 
   useEffect(() => {
-    const sub = provider.pipeTree$.subscribe(setState);
-    return () => sub.unsubscribe();
-  }, []);
+    const sub = provider.pipeTree$.subscribe(setState)
+    return () => sub.unsubscribe()
+  }, [])
 
-  return state;
+  return state
 }
 
 function useActiveOnly() {
-  const [active, setActive] = useState(activeOnly$.getValue());
+  const [active, setActive] = useState(activeOnly$.getValue())
 
   useEffect(() => {
-    const sub = activeOnly$.subscribe(setActive);
-    return () => sub.unsubscribe();
-  }, []);
+    const sub = activeOnly$.subscribe(setActive)
+    return () => sub.unsubscribe()
+  }, [])
 
-  return active;
+  return active
+}
+
+function useTimeline() {
+  const [state, setState] = useState<TimelineState>({
+    pipelines: [],
+    subscriptions: [],
+    timeRange: { start: Date.now(), end: Date.now() + 1000 },
+  })
+
+  useEffect(() => {
+    const sub = provider.timeline$.subscribe(setState)
+    return () => sub.unsubscribe()
+  }, [])
+
+  return state
 }
 
 function useApiData() {
-  const [profile, setProfile] = useState<any>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [notifications, setNotifications] = useState<{ count: number; timestamp: string } | null>(null);
+  const [profile, setProfile] = useState<any>(null)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [notifications, setNotifications] = useState<{ count: number; timestamp: string } | null>(null)
 
   useEffect(() => {
     // "Login" after 500ms
     const loginTimer = setTimeout(() => {
-      session$.next({ id: 1, name: 'Alice', email: 'alice@example.com' });
-    }, 500);
+      sessionSubject$.next({ id: 1, name: "Alice", email: "alice@example.com" })
+    }, 500)
 
-    const profileSub = userProfile$.subscribe(setProfile);
-    const postsSub = userPosts$.subscribe(setPosts);
-    const notifSub = notifications$.pipe(take(10)).subscribe(setNotifications);
+    const profileSub = userProfile$.subscribe(setProfile)
+    const postsSub = userPosts$.subscribe(setPosts)
+    const notifSub = notifications$.pipe(take(10)).subscribe(setNotifications)
 
     return () => {
-      clearTimeout(loginTimer);
-      profileSub.unsubscribe();
-      postsSub.unsubscribe();
-      notifSub.unsubscribe();
-    };
-  }, []);
+      clearTimeout(loginTimer)
+      profileSub.unsubscribe()
+      postsSub.unsubscribe()
+      notifSub.unsubscribe()
+    }
+  }, [])
 
-  return { profile, posts, notifications };
+  return { profile, posts, notifications }
 }
 
 export function TestApp() {
-  const { profile, posts, notifications } = useApiData();
-  const pipeTree = usePipeTree();
-  const activeOnly = useActiveOnly();
+  const { profile, posts, notifications } = useApiData()
+  const pipeTree = usePipeTree()
+  const timeline = useTimeline()
+  const activeOnly = useActiveOnly()
+  const [view, setView] = useState<"tree" | "timeline">("tree")
 
   return (
-    <div style={{ fontFamily: 'system-ui', padding: 20, background: '#0f172a', color: '#e2e8f0', width: '90vw', minHeight: '90vh' }}>
-      <h1 style={{ margin: '0 0 20px', fontSize: 24 }}>RxJS Debugger Test App</h1>
+    <div
+      style={{
+        fontFamily: "system-ui",
+        padding: 20,
+        background: "#0f172a",
+        color: "#e2e8f0",
+        width: "90vw",
+        minHeight: "90vh",
+      }}
+    >
+      <h1 style={{ margin: "0 0 20px", fontSize: 24 }}>RxJS Debugger Test App</h1>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
         {/* User Profile - from session$ -> switchMap -> from(fetch) -> shareReplay */}
-        <div style={{ background: '#1e293b', padding: 16, borderRadius: 8 }}>
-          <h3 style={{ margin: '0 0 12px', color: '#60a5fa' }}>User Profile (shareReplay)</h3>
-          <pre style={{ margin: 0, fontSize: 12, whiteSpace: 'pre-wrap' }}>
-            {profile ? JSON.stringify(profile, null, 2) : 'Waiting for login...'}
+        <div style={{ background: "#1e293b", padding: 16, borderRadius: 8 }}>
+          <h3 style={{ margin: "0 0 12px", color: "#60a5fa" }}>User Profile (shareReplay)</h3>
+          <pre style={{ margin: 0, fontSize: 12, whiteSpace: "pre-wrap" }}>
+            {profile ? JSON.stringify(profile, null, 2) : "Waiting for login..."}
           </pre>
         </div>
 
         {/* User Posts - also switchMap from session$ */}
-        <div style={{ background: '#1e293b', padding: 16, borderRadius: 8 }}>
-          <h3 style={{ margin: '0 0 12px', color: '#22c55e' }}>User Posts (switchMap)</h3>
+        <div style={{ background: "#1e293b", padding: 16, borderRadius: 8 }}>
+          <h3 style={{ margin: "0 0 12px", color: "#22c55e" }}>User Posts (switchMap)</h3>
           <div style={{ fontSize: 12 }}>
-            {posts.length === 0 ? 'Loading posts...' : posts.map(post => (
-              <div key={post.id} style={{ marginBottom: 4 }}>• {post.title}</div>
-            ))}
+            {posts.length === 0
+              ? "Loading posts..."
+              : posts.map(post => (
+                  <div key={post.id} style={{ marginBottom: 4 }}>
+                    • {post.title}
+                  </div>
+                ))}
           </div>
         </div>
 
         {/* Live Notifications - interval -> switchMap -> from(fetch) */}
-        <div style={{ background: '#1e293b', padding: 16, borderRadius: 8, gridColumn: 'span 2' }}>
-          <h3 style={{ margin: '0 0 12px', color: '#a78bfa' }}>Notifications (interval polling)</h3>
+        <div style={{ background: "#1e293b", padding: 16, borderRadius: 8, gridColumn: "span 2" }}>
+          <h3 style={{ margin: "0 0 12px", color: "#a78bfa" }}>Notifications (interval polling)</h3>
           <div style={{ fontSize: 14 }}>
             {notifications
               ? `${notifications.count} new notifications @ ${notifications.timestamp}`
-              : 'Starting poll...'}
+              : "Starting poll..."}
           </div>
         </div>
       </div>
 
-      {/* Pipe Tree visualization */}
-      <div style={{ background: '#1e293b', borderRadius: 8, overflow: 'hidden', padding: 16 }}>
-        <div style={{ marginBottom: 12, fontSize: 14, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span>Observable Pipe Tree ({pipeTree.activeCount} active / {pipeTree.totalCount} total)</span>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => activeOnly$.next(e.target.checked)}
-            />
-            Active only
-          </label>
+      {/* Visualization panel */}
+      <div style={{ background: "#1e293b", borderRadius: 8, overflow: "hidden", padding: 16 }}>
+        {/* View toggle and controls */}
+        <div
+          style={{ marginBottom: 12, fontSize: 14, color: "#9ca3af", display: "flex", alignItems: "center", gap: 12 }}
+        >
+          {/* View toggle buttons */}
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              onClick={() => setView("tree")}
+              style={{
+                padding: "4px 12px",
+                background: view === "tree" ? "#3b82f6" : "#374151",
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+            >
+              Tree
+            </button>
+            <button
+              onClick={() => setView("timeline")}
+              style={{
+                padding: "4px 12px",
+                background: view === "timeline" ? "#3b82f6" : "#374151",
+                color: "#fff",
+                border: "none",
+                borderRadius: 4,
+                cursor: "pointer",
+                fontSize: 12,
+              }}
+            >
+              Timeline
+            </button>
+          </div>
+
+          <span>
+            {view === "tree"
+              ? `Pipe Tree (${pipeTree.activeCount} active / ${pipeTree.totalCount} total)`
+              : `Timeline (${timeline.pipelines.length} pipelines, ${timeline.subscriptions.length} subs)`}
+          </span>
+
+          {view === "tree" && (
+            <label style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input type="checkbox" checked={activeOnly} onChange={e => activeOnly$.next(e.target.checked)} />
+              Active only
+            </label>
+          )}
         </div>
-        <PipeTree state={pipeTree} />
+
+        {/* View content */}
+        {view === "tree" ? <PipeTree state={pipeTree} /> : <Timeline state={timeline} />}
       </div>
     </div>
-  );
+  )
 }

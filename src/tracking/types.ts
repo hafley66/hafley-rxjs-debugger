@@ -23,38 +23,56 @@
  */
 export interface ObservableMetadata {
   /** Unique identifier for this observable (e.g., "obs#42") */
-  id: string;
+  id: string
 
   /** Timestamp (epoch ms) of when the observable was created */
-  createdAt: number;
+  createdAt: number
 
   /** Location in source code where the observable was created (not available for lazy registration) */
   location?: {
     /** Full file path */
-    filePath: string;
+    filePath: string
     /** Line number (1-indexed) */
-    line: number;
+    line: number
     /** Column number (1-indexed) */
-    column: number;
-  };
+    column: number
+  }
 
-  /** Variable name extracted from stack trace, if available */
-  variableName?: string;
+  /** Variable name from __track$ vite plugin (e.g., "userProfile$") */
+  variableName?: string
 
-  /** Reference to parent observable in a pipe chain (using WeakRef to allow GC) */
-  parent?: WeakRef<any>;
+  /** Creation function name (e.g., "from", "interval", "of") */
+  creationFn?: string
+
+  /** Strong reference to source observable to prevent GC (allows tree to show full chain) */
+  sourceRef?: any
+
+  /** Reference to parent observable in a pipe chain (using WeakRef for queries) */
+  parent?: WeakRef<any>
 
   /** Serializable parent ID (since WeakRef can't be serialized to storage) */
-  parentId?: string;
+  parentId?: string
+
+  /**
+   * Snapshot of parent observable metadata (preserved even if parent is GC'd).
+   * Allows tree visualization to show full data flow chain.
+   */
+  parentInfo?: {
+    id: string
+    variableName?: string
+    operators?: string[]
+    creationFn?: string
+    subjectType?: string
+  }
 
   /** Array of operator names applied via pipe() */
-  operators: string[];
+  operators: string[]
 
   /** Tree path representing position in observable hierarchy (e.g., "0.2.1") */
-  path: string;
+  path: string
 
   /** Which .pipe() call created this observable (for grouping) */
-  pipeGroupId?: string;
+  pipeGroupId?: string
 
   // === DYNAMIC CONTEXT (Subscribe-time fields) ===
   // If these are undefined -> created at pipe/module time (static)
@@ -66,49 +84,49 @@ export interface ObservableMetadata {
    * Examples: "switchMap", "mergeMap", "repeat"
    * Set when operatorContext stack has entries during construction.
    */
-  createdByOperator?: string;
+  createdByOperator?: string
 
   /**
    * Which operator instance created this (for tracking multiple uses of same operator).
    * Each operator call gets unique ID (e.g., "op#5").
    */
-  operatorInstanceId?: string;
+  operatorInstanceId?: string
 
   /**
    * Which subscription execution triggered creation.
    * Links dynamic observable back to the subscription that caused it.
    */
-  triggeredBySubscription?: string;
+  triggeredBySubscription?: string
 
   /**
    * Which observable emitted the event that triggered this.
    * Links back to the observable being operated on.
    */
-  triggeredByObservable?: string;
+  triggeredByObservable?: string
 
   /**
    * Which event type triggered creation: 'next', 'error', or 'complete'.
    * Example: repeat creates new timer on 'complete' event.
    */
-  triggeredByEvent?: 'next' | 'error' | 'complete';
+  triggeredByEvent?: "next" | "error" | "complete"
 
   /**
    * Argument path if this observable came from an operator argument.
    * Uses lodash-style paths with .$return sigil for function returns.
    * Examples: "0.delay.$return", "0[1]", "0.notifier.$return"
    */
-  argumentPath?: string;
+  argumentPath?: string
 
   // === SUBJECT TRACKING ===
 
   /** Subject type if this is a Subject variant */
-  subjectType?: 'Subject' | 'BehaviorSubject' | 'ReplaySubject' | 'AsyncSubject';
+  subjectType?: "Subject" | "BehaviorSubject" | "ReplaySubject" | "AsyncSubject"
 
   /** True if this Subject was created internally by an operator (e.g., share) */
-  isInternalSubject?: boolean;
+  isInternalSubject?: boolean
 
   /** True if this observable was lazily registered at subscribe-time rather than intercepted at construction */
-  lazyRegistered?: boolean;
+  lazyRegistered?: boolean
 }
 
 /**
@@ -118,23 +136,23 @@ export interface ObservableMetadata {
  * Represents the dynamic execution tree.
  */
 export interface SubscriptionMetadata {
-  id: string;
-  observableId: string;
-  subscribedAt: number;
-  unsubscribedAt?: number;           // Not null = unsubscribed
+  id: string
+  observableId: string
+  subscribedAt: number
+  unsubscribedAt?: number // Not null = unsubscribed
 
   // Subscribe tree structure
-  parentSubscriptionId?: string;
-  childSubscriptionIds: string[];
+  parentSubscriptionId?: string
+  childSubscriptionIds: string[]
 
   // Bidirectional linking (subscribe-time -> pipe-time)
-  triggeredByObservableId?: string;  // Which observable caused this subscription
-  triggeredByOperator?: string;      // Which operator (e.g., "switchMap")
+  triggeredByObservableId?: string // Which observable caused this subscription
+  triggeredByOperator?: string // Which operator (e.g., "switchMap")
 
   // Execution tracking (for animation/replay)
-  emissionIds: string[];
-  errorIds: string[];
-  completedAt?: number;              // Not null = completed
+  emissionIds: string[]
+  errorIds: string[]
+  completedAt?: number // Not null = completed
 }
 
 /**
@@ -148,7 +166,7 @@ export interface SubscriptionMetadata {
  * - "0[1]" = second element of array in first parameter
  * - "0.notifier.$return" = function return in notifier property
  */
-export type ArgumentPath = string;
+export type ArgumentPath = string
 
 /**
  * ARGUMENT TIME: Cross-observable relationship from operator arguments
@@ -158,12 +176,12 @@ export type ArgumentPath = string;
  * from repeat to the timer observable at path "0.delay.$return".
  */
 export interface ArgumentRelationship {
-  relationshipId: string;
-  operatorName: string;
-  operatorInstanceId: string;          // Each operator call gets unique ID
-  sourceObservableId: string;          // Observable created by operator
-  arguments: Map<ArgumentPath, string>; // path -> observableId
-  createdAt: string;
+  relationshipId: string
+  operatorName: string
+  operatorInstanceId: string // Each operator call gets unique ID
+  sourceObservableId: string // Observable created by operator
+  arguments: Map<ArgumentPath, string> // path -> observableId
+  createdAt: string
 }
 
 /**
@@ -173,24 +191,24 @@ export interface ArgumentRelationship {
  * Used to animate value propagation in the debugger UI.
  */
 export interface Emission {
-  id: string;
-  subscriptionId: string;
-  observableId: string;
-  value: any;
-  timestamp: number;
-  sourceEmissionId?: string;           // What caused this (for operators)
-  operatorName?: string;               // Which operator transformed it
+  id: string
+  subscriptionId: string
+  observableId: string
+  value: any
+  timestamp: number
+  sourceEmissionId?: string // What caused this (for operators)
+  operatorName?: string // Which operator transformed it
 }
 
 /**
  * Error tracking
  */
 export interface ErrorEvent {
-  id: string;
-  subscriptionId: string;
-  observableId: string;
-  error: any;
-  timestamp: number;
+  id: string
+  subscriptionId: string
+  observableId: string
+  error: any
+  timestamp: number
 }
 
 /**
@@ -203,13 +221,13 @@ export interface ErrorEvent {
  * that observable's constructor peeks this context and marks itself.
  */
 export interface OperatorExecutionContext {
-  operatorName: string;
-  operatorInstanceId: string;
-  subscriptionId: string;
-  observableId: string;
-  event: 'next' | 'error' | 'complete';
-  value?: any;
-  timestamp: number;
+  operatorName: string
+  operatorInstanceId: string
+  subscriptionId: string
+  observableId: string
+  event: "next" | "error" | "complete"
+  value?: any
+  timestamp: number
 }
 
 /**
@@ -219,13 +237,13 @@ export interface OperatorExecutionContext {
  * Used to group operators and track pipe-time structure.
  */
 export interface PipeContext {
-  pipeId: string;
-  sourceObservableId: string;
+  pipeId: string
+  sourceObservableId: string
   operators: {
-    name: string;
-    position: number;
-  }[];
-  startedAt: number;
+    name: string
+    position: number
+  }[]
+  startedAt: number
 }
 
 /**
@@ -235,8 +253,8 @@ export interface PipeContext {
  * Used to track nested subscriptions and link them together.
  */
 export interface SubscriptionContext {
-  subscriptionId: string;
-  observableId: string;
-  parentSubscriptionId?: string;
-  depth: number;
+  subscriptionId: string
+  observableId: string
+  parentSubscriptionId?: string
+  depth: number
 }

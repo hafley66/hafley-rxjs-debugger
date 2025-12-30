@@ -12,23 +12,23 @@
  *   }
  */
 
-import * as rx from 'rxjs';
+import * as rx from "rxjs"
 import {
-  observableMetadata,
   generateObservableId,
   generateOperatorInstanceId,
   generateRelationshipId,
+  observableMetadata,
   registerArgumentRelationship,
   registerObservable,
-} from './registry';
-import { getCallerInfo } from './stack-parser';
-import type { ArgumentRelationship, ArgumentPath } from './types';
+} from "./registry"
+import { getCallerInfo } from "./stack-parser"
+import type { ArgumentPath, ArgumentRelationship } from "./types"
 
 /**
  * Check if a value is likely an Observable
  */
 function isObservable(value: any): boolean {
-  return value && typeof value.subscribe === 'function';
+  return value && typeof value.subscribe === "function"
 }
 
 /**
@@ -40,80 +40,77 @@ function isObservable(value: any): boolean {
  * - Object with observables: combineLatest({ x: a$, y: b$ }) → { "x": a$.id, "y": b$.id }
  */
 function scanForObservables(args: any[]): Map<ArgumentPath, string> {
-  const result = new Map<ArgumentPath, string>();
+  const result = new Map<ArgumentPath, string>()
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
+    const arg = args[i]
 
     if (isObservable(arg)) {
       // Direct observable argument
-      const metadata = observableMetadata.get(arg);
+      const metadata = observableMetadata.get(arg)
       if (metadata) {
-        result.set(String(i), metadata.id);
+        result.set(String(i), metadata.id)
       }
     } else if (Array.isArray(arg)) {
       // Array of observables (common pattern for combineLatest, forkJoin)
       for (let j = 0; j < arg.length; j++) {
-        const item = arg[j];
+        const item = arg[j]
         if (isObservable(item)) {
-          const metadata = observableMetadata.get(item);
+          const metadata = observableMetadata.get(item)
           if (metadata) {
-            result.set(String(j), metadata.id);
+            result.set(String(j), metadata.id)
           }
         }
       }
-    } else if (arg && typeof arg === 'object' && !isObservable(arg)) {
+    } else if (arg && typeof arg === "object" && !isObservable(arg)) {
       // Object with observable properties (combineLatest({ x: a$, y: b$ }))
       for (const [key, value] of Object.entries(arg)) {
         if (isObservable(value)) {
-          const metadata = observableMetadata.get(value);
+          const metadata = observableMetadata.get(value)
           if (metadata) {
-            result.set(key, metadata.id);
+            result.set(key, metadata.id)
           }
         }
       }
     }
   }
 
-  return result;
+  return result
 }
 
 /**
  * Wrap a creation function to detect observable arguments
  */
-function wrapCreationWithArgDetection<T extends (...args: any[]) => rx.Observable<any>>(
-  fn: T,
-  name: string
-): T {
+function wrapCreationWithArgDetection<T extends (...args: any[]) => rx.Observable<any>>(fn: T, name: string): T {
   return ((...args: any[]) => {
     // Call original function
-    const result = fn(...args);
+    const result = fn(...args)
 
     // Get or create metadata for result
-    let resultMetadata = observableMetadata.get(result);
+    let resultMetadata = observableMetadata.get(result)
     if (!resultMetadata) {
-      const callerInfo = getCallerInfo();
+      const callerInfo = getCallerInfo()
       resultMetadata = {
         id: generateObservableId(),
         createdAt: Date.now(),
         location: {
-          filePath: callerInfo?.filePath || 'unknown',
+          filePath: callerInfo?.filePath || "unknown",
           line: callerInfo?.line || 0,
           column: callerInfo?.column || 0,
         },
         variableName: callerInfo?.context || name,
         operators: [],
-        path: '',
-      };
-      registerObservable(result, resultMetadata);
+        path: "",
+      }
+      registerObservable(result, resultMetadata)
     }
 
     // Scan arguments for observables
-    const argumentObservables = scanForObservables(args);
+    const argumentObservables = scanForObservables(args)
 
     // Register relationship if we found any observable arguments
     if (argumentObservables.size > 0) {
-      const operatorInstanceId = generateOperatorInstanceId();
+      const operatorInstanceId = generateOperatorInstanceId()
       const relationship: ArgumentRelationship = {
         relationshipId: generateRelationshipId(),
         operatorName: name,
@@ -121,21 +118,21 @@ function wrapCreationWithArgDetection<T extends (...args: any[]) => rx.Observabl
         sourceObservableId: resultMetadata.id,
         arguments: argumentObservables,
         createdAt: new Date().toISOString(),
-      };
-      registerArgumentRelationship(relationship);
+      }
+      registerArgumentRelationship(relationship)
     }
 
-    return result;
-  }) as T;
+    return result
+  }) as T
 }
 
 // Export wrapped creation functions with argument detection
-export const combineLatest = wrapCreationWithArgDetection(rx.combineLatest, 'combineLatest');
-export const merge = wrapCreationWithArgDetection(rx.merge, 'merge');
-export const forkJoin = wrapCreationWithArgDetection(rx.forkJoin, 'forkJoin');
-export const zip = wrapCreationWithArgDetection(rx.zip, 'zip');
-export const race = wrapCreationWithArgDetection(rx.race, 'race');
-export const concat = wrapCreationWithArgDetection(rx.concat, 'concat');
+export const combineLatest = wrapCreationWithArgDetection(rx.combineLatest, "combineLatest")
+export const merge = wrapCreationWithArgDetection(rx.merge, "merge")
+export const forkJoin = wrapCreationWithArgDetection(rx.forkJoin, "forkJoin")
+export const zip = wrapCreationWithArgDetection(rx.zip, "zip")
+export const race = wrapCreationWithArgDetection(rx.race, "race")
+export const concat = wrapCreationWithArgDetection(rx.concat, "concat")
 
 // Also wrap onErrorResumeNext which takes observables
-export const onErrorResumeNext = wrapCreationWithArgDetection(rx.onErrorResumeNext, 'onErrorResumeNext');
+export const onErrorResumeNext = wrapCreationWithArgDetection(rx.onErrorResumeNext, "onErrorResumeNext")

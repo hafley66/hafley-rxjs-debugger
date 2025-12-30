@@ -12,7 +12,7 @@
 import { Observable } from 'rxjs';
 import {
   getMetadata,
-  observableMetadata,
+  registerObservable,
   generateObservableId,
   generatePipeGroupId,
   pipeContext,
@@ -111,6 +111,17 @@ export function patchPipe(): void {
     const sourceId = sourceMetadata?.id || 'unknown';
     const sourcePath = sourceMetadata?.path || '';
 
+    // Capture parent info snapshot (preserved even if parent is GC'd)
+    const parentInfo = sourceMetadata
+      ? {
+          id: sourceMetadata.id,
+          variableName: sourceMetadata.variableName,
+          operators: sourceMetadata.operators,
+          creationFn: sourceMetadata.creationFn,
+          subjectType: sourceMetadata.subjectType,
+        }
+      : undefined;
+
     // Generate IDs
     const pipeId = generatePipeGroupId();
 
@@ -141,14 +152,17 @@ export function patchPipe(): void {
 
     if (existingMeta) {
       // Update existing metadata with pipe-specific info
+      // Keep strong reference to source to prevent GC (allows tree to show full chain)
+      existingMeta.sourceRef = this;
       existingMeta.parent = new WeakRef(this);
       existingMeta.parentId = sourceId; // Serializable version of parent
+      existingMeta.parentInfo = parentInfo; // Snapshot preserved even if parent GC'd
       existingMeta.operators = operatorInfos.map((o) => o.name);
       existingMeta.path = generatePath(sourcePath, operators.length);
       existingMeta.pipeGroupId = pipeId;
 
-      // Update in storage (strip WeakRef)
-      const { parent, ...serializableMetadata } = existingMeta;
+      // Update in storage (strip non-serializable refs)
+      const { parent, sourceRef, ...serializableMetadata } = existingMeta;
       writeQueue$.next({
         store: 'observables',
         key: existingMeta.id,
@@ -165,22 +179,18 @@ export function patchPipe(): void {
           line: 0,
           column: 0,
         },
+        // Keep strong reference to source to prevent GC (allows tree to show full chain)
+        sourceRef: this,
         parent: new WeakRef(this),
         parentId: sourceId, // Serializable version of parent
+        parentInfo, // Snapshot preserved even if parent GC'd
         operators: operatorInfos.map((o) => o.name),
         path: generatePath(sourcePath, operators.length),
         pipeGroupId: pipeId,
       };
 
-      observableMetadata.set(result, metadata);
-
-      // Write to storage (strip WeakRef)
-      const { parent, ...serializableMetadata } = metadata;
-      writeQueue$.next({
-        store: 'observables',
-        key: metadata.id,
-        data: serializableMetadata,
-      });
+      // Use registerObservable to properly add to both WeakMap AND observableById
+      registerObservable(result, metadata);
     }
 
     return result;

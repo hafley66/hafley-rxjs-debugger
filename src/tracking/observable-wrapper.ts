@@ -6,16 +6,10 @@
  * is being created at pipe-time (static) or subscribe-time (dynamic).
  */
 
-import { Observable as RxJSObservable } from 'rxjs';
-import { getCallerInfo } from './stack-parser';
-import {
-  generateObservableId,
-  registerObservable,
-  operatorContext,
-  pipeContext,
-} from './registry';
-import { writeQueue$ } from './storage';
-import type { ObservableMetadata } from './types';
+import { Observable as RxJSObservable } from "rxjs"
+import { generateObservableId, operatorContext, pipeContext, registerObservable } from "./registry"
+import { writeQueue$ } from "./storage"
+import type { ObservableMetadata } from "./types"
 
 /**
  * Tracked Observable class
@@ -28,30 +22,23 @@ import type { ObservableMetadata } from './types';
  */
 class OObservable<T> extends RxJSObservable<T> {
   constructor(subscribe?: (subscriber: any) => any) {
-    super(subscribe);
+    super(subscribe)
 
     // Capture static context from stack trace
-    const callerInfo = getCallerInfo();
 
     // THE KEY: Check operator execution context
     // If stack is empty -> pipe/module time creation (static)
     // If stack has entries -> subscribe-time creation (dynamic)
-    const ctx = operatorContext.peek();
+    const ctx = operatorContext.peek()
 
     // Check pipe context for grouping
-    const pipeCtx = pipeContext.peek();
+    const pipeCtx = pipeContext.peek()
 
     const metadata: ObservableMetadata = {
       id: generateObservableId(),
       createdAt: Date.now(),
-      location: {
-        filePath: callerInfo?.filePath || 'unknown',
-        line: callerInfo?.line || 0,
-        column: callerInfo?.column || 0,
-      },
-      variableName: callerInfo?.context,
       operators: [],
-      path: '',
+      path: "",
       pipeGroupId: pipeCtx?.pipeId,
 
       // Dynamic context (only set if created during operator execution)
@@ -64,22 +51,22 @@ class OObservable<T> extends RxJSObservable<T> {
       triggeredByEvent: ctx?.event,
 
       // argumentPath will be set by argument wrapper functions if applicable
-    };
+    }
 
     // ALWAYS register observables (pipe-time tracking)
-    registerObservable(this, metadata);
+    registerObservable(this, metadata)
 
     // Queue write to storage (batched)
     writeQueue$.next({
-      store: 'observables',
+      store: "observables",
       key: metadata.id,
       data: metadata,
-    });
+    })
   }
 }
 
 // Export as Observable for drop-in replacement
-export { OObservable as Observable };
+export { OObservable as Observable }
 
 // Re-export everything else from rxjs
-export * from 'rxjs';
+export * from "rxjs"

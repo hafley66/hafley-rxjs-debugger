@@ -7,17 +7,17 @@
  * Also manages context stacks for tracking execution state (pipe/operator/subscription).
  */
 
+import { writeQueue$ } from "./storage"
 import type {
-  ObservableMetadata,
-  SubscriptionMetadata,
-  OperatorExecutionContext,
-  PipeContext,
-  SubscriptionContext,
   ArgumentRelationship,
   Emission,
   ErrorEvent,
-} from './types';
-import { writeQueue$ } from './storage';
+  ObservableMetadata,
+  OperatorExecutionContext,
+  PipeContext,
+  SubscriptionContext,
+  SubscriptionMetadata,
+} from "./types"
 
 /**
  * WeakMap storing metadata for each Observable instance.
@@ -27,7 +27,7 @@ import { writeQueue$ } from './storage';
  * Key: Observable instance
  * Value: ObservableMetadata
  */
-export const observableMetadata = new WeakMap<any, ObservableMetadata>();
+export const observableMetadata = new WeakMap<any, ObservableMetadata>()
 
 /**
  * Map for looking up observables by their string ID.
@@ -37,7 +37,7 @@ export const observableMetadata = new WeakMap<any, ObservableMetadata>();
  * Key: Observable ID (string)
  * Value: WeakRef to the Observable instance
  */
-const observableById = new Map<string, WeakRef<any>>();
+const observableById = new Map<string, WeakRef<any>>()
 
 /**
  * Map of currently active subscriptions.
@@ -47,7 +47,7 @@ const observableById = new Map<string, WeakRef<any>>();
  * Key: Subscription ID (string)
  * Value: SubscriptionMetadata
  */
-export const activeSubscriptions = new Map<string, SubscriptionMetadata>();
+export const activeSubscriptions = new Map<string, SubscriptionMetadata>()
 
 /**
  * Archive for unsubscribed subscriptions.
@@ -57,26 +57,26 @@ export const activeSubscriptions = new Map<string, SubscriptionMetadata>();
  * Key: Subscription ID (string)
  * Value: SubscriptionMetadata
  */
-export const archivedSubscriptions = new Map<string, SubscriptionMetadata>();
+export const archivedSubscriptions = new Map<string, SubscriptionMetadata>()
 
 /**
  * Counter for generating unique Observable IDs
  * Increments with each new Observable instance
  */
-let observableCounter = 0;
+let observableCounter = 0
 
 /**
  * Counter for generating unique Subscription IDs
  * Increments with each new Subscription instance
  */
-let subscriptionCounter = 0;
+let subscriptionCounter = 0
 
 /**
  * Generates a unique identifier for an Observable instance
  * @returns Unique ID in format "obs#N"
  */
 export function generateObservableId(): string {
-  return `obs#${observableCounter++}`;
+  return `obs#${observableCounter++}`
 }
 
 /**
@@ -84,7 +84,7 @@ export function generateObservableId(): string {
  * @returns Unique ID in format "sub#N"
  */
 export function generateSubscriptionId(): string {
-  return `sub#${subscriptionCounter++}`;
+  return `sub#${subscriptionCounter++}`
 }
 
 /**
@@ -97,26 +97,26 @@ export function generateSubscriptionId(): string {
  * @param metadata - The metadata to associate with this observable
  */
 // Guard against recursive writeQueue$ emissions
-let inWriteQueue = false;
+let inWriteQueue = false
 
 export function registerObservable(obs: any, metadata: ObservableMetadata): void {
-  observableMetadata.set(obs, metadata);
-  observableById.set(metadata.id, new WeakRef(obs));
+  observableMetadata.set(obs, metadata)
+  observableById.set(metadata.id, new WeakRef(obs))
 
   // Emit to writeQueue$ so InlineProvider can track it
   // Guard against recursion (writeQueue$ subscribers might register more observables)
   if (!inWriteQueue) {
-    inWriteQueue = true;
+    inWriteQueue = true
     try {
       // Strip WeakRef (parent) before saving - can't be serialized to IndexedDB
-      const { parent, ...serializableMetadata } = metadata;
+      const { parent, ...serializableMetadata } = metadata
       writeQueue$.next({
-        store: 'observables',
+        store: "observables",
         key: metadata.id,
         data: serializableMetadata,
-      });
+      })
     } finally {
-      inWriteQueue = false;
+      inWriteQueue = false
     }
   }
 }
@@ -128,8 +128,23 @@ export function registerObservable(obs: any, metadata: ObservableMetadata): void
  * @returns The Observable instance, or undefined if not found or GC'd
  */
 export function getObservableById(id: string): any | undefined {
-  const ref = observableById.get(id);
-  return ref?.deref();
+  const ref = observableById.get(id)
+  return ref?.deref()
+}
+
+/**
+ * Get all observable metadata that's still alive (not GC'd)
+ */
+export function getAllObservableMetadata(): ObservableMetadata[] {
+  const results: ObservableMetadata[] = []
+  for (const [_id, ref] of observableById) {
+    const obs = ref.deref()
+    if (obs) {
+      const meta = observableMetadata.get(obs)
+      if (meta) results.push(meta)
+    }
+  }
+  return results
 }
 
 /**
@@ -139,7 +154,7 @@ export function getObservableById(id: string): any | undefined {
  * @returns The associated metadata, or undefined if not found
  */
 export function getMetadata(obs: any): ObservableMetadata | undefined {
-  return observableMetadata.get(obs);
+  return observableMetadata.get(obs)
 }
 
 /**
@@ -153,25 +168,25 @@ export function getMetadata(obs: any): ObservableMetadata | undefined {
  * @returns The metadata (existing or newly created)
  */
 export function ensureObservableRegistered(obs: any): ObservableMetadata {
-  const existing = observableMetadata.get(obs);
+  const existing = observableMetadata.get(obs)
   if (existing) {
-    return existing;
+    return existing
   }
 
   // Capture current context at registration time
-  const opCtx = operatorContext.peek();
-  const pipeCtx = pipeContext.peek();
-  const subCtx = subscriptionContext.peek();
+  const opCtx = operatorContext.peek()
+  const pipeCtx = pipeContext.peek()
+  const subCtx = subscriptionContext.peek()
 
   // Detect Subject type from constructor name
-  const constructorName = obs?.constructor?.name;
-  const isSubject = ['Subject', 'BehaviorSubject', 'ReplaySubject', 'AsyncSubject'].includes(constructorName);
+  const constructorName = obs?.constructor?.name
+  const isSubject = ["Subject", "BehaviorSubject", "ReplaySubject", "AsyncSubject"].includes(constructorName)
 
   const metadata: ObservableMetadata = {
     id: generateObservableId(),
     createdAt: Date.now(),
     operators: [],
-    path: '',
+    path: "",
 
     // Subject type if detected
     subjectType: isSubject ? constructorName : undefined,
@@ -188,10 +203,10 @@ export function ensureObservableRegistered(obs: any): ObservableMetadata {
 
     // Flag for lazy registration
     lazyRegistered: true,
-  };
+  }
 
-  registerObservable(obs, metadata);
-  return metadata;
+  registerObservable(obs, metadata)
+  return metadata
 }
 
 /**
@@ -200,7 +215,7 @@ export function ensureObservableRegistered(obs: any): ObservableMetadata {
  * @param metadata - The subscription metadata to register
  */
 export function registerSubscription(metadata: SubscriptionMetadata): void {
-  activeSubscriptions.set(metadata.id, metadata);
+  activeSubscriptions.set(metadata.id, metadata)
 }
 
 /**
@@ -209,11 +224,11 @@ export function registerSubscription(metadata: SubscriptionMetadata): void {
  * @param subscriptionId - The ID of the subscription to archive
  */
 export function archiveSubscription(subscriptionId: string): void {
-  const metadata = activeSubscriptions.get(subscriptionId);
+  const metadata = activeSubscriptions.get(subscriptionId)
   if (metadata) {
-    metadata.unsubscribedAt = Date.now();
-    archivedSubscriptions.set(subscriptionId, metadata);
-    activeSubscriptions.delete(subscriptionId);
+    metadata.unsubscribedAt = Date.now()
+    archivedSubscriptions.set(subscriptionId, metadata)
+    activeSubscriptions.delete(subscriptionId)
   }
 }
 
@@ -223,16 +238,14 @@ export function archiveSubscription(subscriptionId: string): void {
  * @param observableId - The Observable ID to filter by
  * @returns Array of active subscription metadata
  */
-export function getActiveSubscriptionsForObservable(
-  observableId: string
-): SubscriptionMetadata[] {
-  const result: SubscriptionMetadata[] = [];
+export function getActiveSubscriptionsForObservable(observableId: string): SubscriptionMetadata[] {
+  const result: SubscriptionMetadata[] = []
   for (const metadata of activeSubscriptions.values()) {
     if (metadata.observableId === observableId) {
-      result.push(metadata);
+      result.push(metadata)
     }
   }
-  return result;
+  return result
 }
 
 /**
@@ -240,7 +253,7 @@ export function getActiveSubscriptionsForObservable(
  * Useful for preventing unbounded memory growth in long-running applications
  */
 export function clearArchivedSubscriptions(): void {
-  archivedSubscriptions.clear();
+  archivedSubscriptions.clear()
 }
 
 // === CONTEXT STACKS ===
@@ -251,133 +264,133 @@ export function clearArchivedSubscriptions(): void {
  * Operator execution context stack
  * THE KEY PIECE - Observable constructor peeks this to determine dynamic vs static creation
  */
-const operatorContextStack: OperatorExecutionContext[] = [];
+const operatorContextStack: OperatorExecutionContext[] = []
 
 export const operatorContext = {
   push: (ctx: OperatorExecutionContext) => operatorContextStack.push(ctx),
   pop: () => operatorContextStack.pop(),
   peek: () => operatorContextStack[operatorContextStack.length - 1],
-};
+}
 
 /**
  * Pipe context stack
  * Tracks which .pipe() call we're currently in
  */
-const pipeContextStack: PipeContext[] = [];
+const pipeContextStack: PipeContext[] = []
 
 export const pipeContext = {
   push: (ctx: PipeContext) => pipeContextStack.push(ctx),
   pop: () => pipeContextStack.pop(),
   peek: () => pipeContextStack[pipeContextStack.length - 1],
-};
+}
 
 /**
  * Subscription context stack
  * Tracks which subscription is currently executing
  */
-const subscriptionContextStack: SubscriptionContext[] = [];
+const subscriptionContextStack: SubscriptionContext[] = []
 
 export const subscriptionContext = {
   push: (ctx: SubscriptionContext) => subscriptionContextStack.push(ctx),
   pop: () => subscriptionContextStack.pop(),
   peek: () => subscriptionContextStack[subscriptionContextStack.length - 1],
-};
+}
 
 // === ARGUMENT RELATIONSHIPS ===
 
-const argumentRelationships = new Map<string, ArgumentRelationship>();
-const observableUsedIn = new Map<string, Set<string>>(); // obsId -> Set<relationshipId>
+const argumentRelationships = new Map<string, ArgumentRelationship>()
+const observableUsedIn = new Map<string, Set<string>>() // obsId -> Set<relationshipId>
 
-let relationshipCounter = 0;
-let operatorInstanceCounter = 0;
+let relationshipCounter = 0
+let operatorInstanceCounter = 0
 
 export function generateRelationshipId(): string {
-  return `rel#${relationshipCounter++}`;
+  return `rel#${relationshipCounter++}`
 }
 
 export function generateOperatorInstanceId(): string {
-  return `op#${operatorInstanceCounter++}`;
+  return `op#${operatorInstanceCounter++}`
 }
 
 export function registerArgumentRelationship(rel: ArgumentRelationship): void {
-  argumentRelationships.set(rel.relationshipId, rel);
+  argumentRelationships.set(rel.relationshipId, rel)
 
   // Build reverse index
   for (const [_path, obsId] of rel.arguments) {
     if (!observableUsedIn.has(obsId)) {
-      observableUsedIn.set(obsId, new Set());
+      observableUsedIn.set(obsId, new Set())
     }
-    observableUsedIn.get(obsId)!.add(rel.relationshipId);
+    observableUsedIn.get(obsId)!.add(rel.relationshipId)
   }
 
   // Queue write to storage
   writeQueue$.next({
-    store: 'relationships',
+    store: "relationships",
     key: rel.relationshipId,
     data: {
       ...rel,
       arguments: Array.from(rel.arguments.entries()), // Serialize Map
     },
-  });
+  })
 }
 
 export function getRelationshipsUsingObservable(observableId: string): ArgumentRelationship[] {
-  const relIds = observableUsedIn.get(observableId);
-  if (!relIds) return [];
+  const relIds = observableUsedIn.get(observableId)
+  if (!relIds) return []
   return Array.from(relIds)
-    .map((id) => argumentRelationships.get(id))
-    .filter(Boolean) as ArgumentRelationship[];
+    .map(id => argumentRelationships.get(id))
+    .filter(Boolean) as ArgumentRelationship[]
 }
 
 // === EMISSION AND ERROR TRACKING ===
 
-let emissionCounter = 0;
-let errorCounter = 0;
+let emissionCounter = 0
+let errorCounter = 0
 
 export function generateEmissionId(): string {
-  return `emit#${emissionCounter++}`;
+  return `emit#${emissionCounter++}`
 }
 
 export function generateErrorId(): string {
-  return `err#${errorCounter++}`;
+  return `err#${errorCounter++}`
 }
 
 export function recordEmission(emission: Emission): void {
   // Add to subscription's emission list
-  const sub = activeSubscriptions.get(emission.subscriptionId);
+  const sub = activeSubscriptions.get(emission.subscriptionId)
   if (sub) {
-    sub.emissionIds.push(emission.id);
+    sub.emissionIds.push(emission.id)
   }
 
   // Queue write to storage (batched)
   writeQueue$.next({
-    store: 'emissions',
+    store: "emissions",
     key: emission.id,
     data: emission,
-  });
+  })
 }
 
 export function recordError(error: ErrorEvent): void {
   // Add to subscription's error list
-  const sub = activeSubscriptions.get(error.subscriptionId);
+  const sub = activeSubscriptions.get(error.subscriptionId)
   if (sub) {
-    sub.errorIds.push(error.id);
+    sub.errorIds.push(error.id)
   }
 
   // Queue write to storage (batched)
   writeQueue$.next({
-    store: 'errors',
+    store: "errors",
     key: error.id,
     data: error,
-  });
+  })
 }
 
 // === PIPE GROUP ID ===
 
-let pipeGroupCounter = 0;
+let pipeGroupCounter = 0
 
 export function generatePipeGroupId(): string {
-  return `pipe#${pipeGroupCounter++}`;
+  return `pipe#${pipeGroupCounter++}`
 }
 
 /**
@@ -385,13 +398,13 @@ export function generatePipeGroupId(): string {
  * Used for testing to ensure deterministic IDs.
  */
 export function resetRegistry(): void {
-  observableCounter = 0;
-  subscriptionCounter = 0;
-  relationshipCounter = 0;
-  operatorInstanceCounter = 0;
-  emissionCounter = 0;
-  errorCounter = 0;
-  pipeGroupCounter = 0;
-  activeSubscriptions.clear();
-  archivedSubscriptions.clear();
+  observableCounter = 0
+  subscriptionCounter = 0
+  relationshipCounter = 0
+  operatorInstanceCounter = 0
+  emissionCounter = 0
+  errorCounter = 0
+  pipeGroupCounter = 0
+  activeSubscriptions.clear()
+  archivedSubscriptions.clear()
 }

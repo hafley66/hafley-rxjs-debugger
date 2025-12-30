@@ -1,4 +1,5 @@
 import { defineConfig } from 'rolldown-vite';
+import { rxjsDebuggerPlugin } from "./src/vite-plugin/v2"
 
 export default defineConfig({
   build: {
@@ -14,18 +15,10 @@ export default defineConfig({
     sourcemap: true,
     target: 'esnext',
   },
-  test: {
-    globals: true,
-    environment: 'node',
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'dist/',
-        '**/*.test.ts',
-        '**/__tests__/**',
-      ],
-    },
-  },
+  plugins: [
+        rxjsDebuggerPlugin({ debug: true }), // debug: true for verbose logs
+  ],
+  optimizeDeps: {
+    include: ['rxjs', 'rxjs/operators'],
+  }
 });

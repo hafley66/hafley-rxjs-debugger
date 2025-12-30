@@ -16,37 +16,36 @@
  * to push operatorContext when their project functions execute.
  */
 
-import * as rxjsOps from 'rxjs/operators';
-import { annotateOperator } from './pipe-patch';
-
+import * as rxjsOps from "rxjs/operators"
 // Import specially-wrapped higher-order operators
 import {
-  switchMap as wrappedSwitchMap,
-  mergeMap as wrappedMergeMap,
   concatMap as wrappedConcatMap,
   exhaustMap as wrappedExhaustMap,
   expand as wrappedExpand,
   flatMap as wrappedFlatMap,
-} from './higher-order-wrapper';
+  mergeMap as wrappedMergeMap,
+  switchMap as wrappedSwitchMap,
+} from "./higher-order-wrapper"
+import { annotateOperator } from "./pipe-patch"
 
 /**
  * Wraps all operator factories to auto-annotate the returned OperatorFunction
  */
 function autoDecorateAll<T extends Record<string, any>>(ops: T): T {
-  const result: any = {};
+  const result: any = {}
   for (const [name, op] of Object.entries(ops)) {
-    if (typeof op === 'function') {
+    if (typeof op === "function") {
       // Wrap the operator factory to annotate its result
-      result[name] = (...args: any[]) => annotateOperator(op(...args), name);
+      result[name] = (...args: any[]) => annotateOperator(op(...args), name)
     } else {
       // Pass through non-functions (constants, types, etc.)
-      result[name] = op;
+      result[name] = op
     }
   }
-  return result;
+  return result
 }
 
-const decorated = autoDecorateAll(rxjsOps);
+const decorated = autoDecorateAll(rxjsOps)
 
 // Export all decorated operators
 export const {
@@ -160,10 +159,10 @@ export const {
 
   // Math
   // (count, max, min already listed above)
-} = decorated;
+} = decorated
 
 // Re-export the full decorated object for dynamic access
-export { decorated as operators };
+export { decorated as operators }
 
 // Export specially-wrapped higher-order operators
 // These push operatorContext when their project functions execute
@@ -174,4 +173,4 @@ export {
   wrappedExhaustMap as exhaustMap,
   wrappedExpand as expand,
   wrappedFlatMap as flatMap,
-};
+}

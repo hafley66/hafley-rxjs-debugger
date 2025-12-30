@@ -213,29 +213,31 @@ function wrapObserver(
 
   return {
     next: (value: any) => {
-      // Track emission if enabled
-      if (currentConfig.enabled && currentConfig.trackEmissions) {
-        const emission: Emission = {
-          id: generateEmissionId(),
-          subscriptionId: subId,
-          observableId: obsId,
-          value,
-          timestamp: Date.now(),
-        };
-        recordEmission(emission);
-      }
-
-      // CRITICAL: Push subscription context during emission handling
-      // This allows switchMap/mergeMap project functions to see which subscription triggered them
-      // Guard against recursion (internal subscriptions like writeQueue$)
+      // Guard against recursion (internal subscriptions like writeQueue$, pipeTree$, timeline$)
+      // If we're already handling an emission, skip tracking to prevent infinite loops
       if (inEmissionHandler) {
         originalNext?.(value);
         return;
       }
 
+      // Set guard BEFORE any tracking to prevent recursion
       inEmissionHandler = true;
       subscriptionContext.push(emissionContext);
+
       try {
+        // Track emission if enabled
+        if (currentConfig.enabled && currentConfig.trackEmissions) {
+          const emission: Emission = {
+            id: generateEmissionId(),
+            subscriptionId: subId,
+            observableId: obsId,
+            value,
+            timestamp: Date.now(),
+          };
+          recordEmission(emission);
+        }
+
+        // Call original next handler
         originalNext?.(value);
       } finally {
         subscriptionContext.pop();

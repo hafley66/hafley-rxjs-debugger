@@ -37,6 +37,8 @@ interface RxjsTrackPluginOptions {
   exclude?: RegExp;
   /** Track import source (default: 'rxjs-debugger/track') */
   trackImport?: string;
+  /** Require autotrackRxjs() opt-in marker in file (default: true) */
+  requireOptIn?: boolean;
 }
 
 // RxJS creation functions to track
@@ -55,6 +57,7 @@ export function rxjsTrackPlugin(options: RxjsTrackPluginOptions = {}): Plugin {
     include = /\.[tj]sx?$/,
     exclude = /node_modules/,
     trackImport = 'rxjs-debugger/track',
+    requireOptIn = true,
   } = options;
 
   let parseSync: ((filename: string, code: string, options?: any) => OxcParseResult) | null = null;
@@ -76,6 +79,11 @@ export function rxjsTrackPlugin(options: RxjsTrackPluginOptions = {}): Plugin {
     async transform(code: string, id: string) {
       // Skip excluded files
       if (!include.test(id) || exclude.test(id)) {
+        return null;
+      }
+
+      // Only transform files that have opted in via autotrackRxjs()
+      if (requireOptIn && !code.includes('autotrackRxjs')) {
         return null;
       }
 
