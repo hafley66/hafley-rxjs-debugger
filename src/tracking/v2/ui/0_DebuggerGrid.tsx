@@ -1,19 +1,16 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { state$ } from "../00.types"
-import { decycle, isTracking, track } from "../01_helpers"
+import { decycle } from "../01_helpers"
 import { getAllSends, getRootObservables, getTopLevelSubscriptions } from "../06_queries"
+import { MarbleDiagram } from "./1_MarbleDiagram"
 
 export function DebuggerGrid() {
-  const [, forceUpdate] = useState(0)
+  state$.use$()
+  const [selectedSubId, setSelectedSubId] = useState<string | null>(null)
 
-  useEffect(() => {
-    // Disable tracking for internal state subscription
-    const prev = isTracking()
-    track(false)
-    const sub = state$.subscribe(() => forceUpdate(n => n + 1))
-    track(prev)
-    return () => sub.unsubscribe()
-  }, [])
+  if (selectedSubId) {
+    return <MarbleDiagram subId={selectedSubId} onBack={() => setSelectedSubId(null)} />
+  }
 
   const store = state$.value.store
   const roots = getRootObservables(store)
@@ -40,12 +37,24 @@ export function DebuggerGrid() {
           {/* Header row */}
           <div style={{ padding: 4, borderBottom: "1px solid #ccc", fontWeight: "bold" }}>Structure</div>
           {subs.map(s => (
-            <div
+            <button
               key={s.id}
-              style={{ padding: 4, borderBottom: "1px solid #ccc", fontWeight: "bold", textAlign: "center" }}
+              type="button"
+              style={{
+                padding: 4,
+                fontWeight: "bold",
+                textAlign: "center",
+                cursor: "pointer",
+                background: "none",
+                border: "none",
+                borderBottom: "1px solid #ccc",
+                font: "inherit",
+              }}
+              onClick={() => setSelectedSubId(s.id)}
+              title="Click to view marble diagram"
             >
               Sub #{s.id}
-            </div>
+            </button>
           ))}
 
           {/* Structure rows */}
@@ -76,13 +85,7 @@ export function DebuggerGrid() {
   )
 }
 
-function SendRow({
-  send,
-  subIds,
-}: {
-  send: ReturnType<typeof getAllSends>[number]
-  subIds: string[]
-}) {
+function SendRow({ send, subIds }: { send: ReturnType<typeof getAllSends>[number]; subIds: string[] }) {
   return (
     <>
       {/* Empty first column (aligns with structure) */}

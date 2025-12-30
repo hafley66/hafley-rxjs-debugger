@@ -8,6 +8,7 @@
  * use vite plugin to force parsing and bundling rxjs with code manip using ast-grep on matching class expressions and add decorators or proxies inlined
  */
 
+import { useEffect, useState } from "react"
 import { BehaviorSubject } from "rxjs/internal/BehaviorSubject"
 import { Observable } from "rxjs/internal/Observable"
 import { Subject } from "rxjs/internal/Subject"
@@ -147,6 +148,20 @@ class EasierBS<T extends {}> extends BehaviorSubject<T> {
     return (source$: Observable<Next>) => {
       return source$.pipe(scanEager((_sum, next) => accumulator(this.value, next), this.value))
     }
+  }
+
+  use$(): T {
+    const [, forceUpdate] = useState(0)
+
+    useEffect(() => {
+      const prev = isTracking()
+      track(false)
+      const sub = this.subscribe(() => forceUpdate(n => n + 1))
+      track(prev)
+      return () => sub.unsubscribe()
+    }, [])
+
+    return this.value
   }
 }
 

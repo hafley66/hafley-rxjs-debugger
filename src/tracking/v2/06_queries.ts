@@ -83,3 +83,62 @@ export function isRuntimeObs(store: Store, obsId: string) {
 export function getArgCallForObs(store: Store, obsId: string) {
   return Object.values(store.arg_call).find(ac => ac.observable_id === obsId)
 }
+
+// === Marble Diagram Queries ===
+
+type Subscription = Store["subscription"][string]
+type Send = Store["send"][string]
+
+export type SubTreeNode = {
+  sub: Subscription
+  children: SubTreeNode[]
+  sends: Send[]
+}
+
+export type FlatSubRow = {
+  sub: Subscription
+  depth: number
+  sends: Send[]
+}
+
+// Get full subscription tree rooted at a sub
+export function getSubTree(store: Store, rootSubId: string): SubTreeNode | null {
+  const sub = store.subscription[rootSubId]
+  if (!sub) return null
+
+  const sends = getSendsFor(store, rootSubId)
+  const children = getChildSubscriptions(store, rootSubId).map(child => getSubTree(store, child.id)!).filter(Boolean)
+
+  return { sub, children, sends }
+}
+
+// Flatten tree for rendering (with depth)
+export function flattenSubTree(node: SubTreeNode, depth = 0): FlatSubRow[] {
+  const rows: FlatSubRow[] = [{ sub: node.sub, depth, sends: node.sends }]
+  for (const child of node.children) {
+    rows.push(...flattenSubTree(child, depth + 1))
+  }
+  return rows
+}
+
+// Get time range from rows (or full store)
+export function getTimeRange(rows: FlatSubRow[]): { min: number; max: number } {
+  let min = Infinity
+  let max = -Infinity
+
+  for (const row of rows) {
+    min = Math.min(min, row.sub.created_at)
+    max = Math.max(max, row.sub.created_at_end ?? row.sub.unsubscribed_at ?? row.sub.created_at)
+
+    for (const send of row.sends) {
+      min = Math.min(min, send.created_at)
+      max = Math.max(max, send.created_at_end ?? send.created_at)
+    }
+  }
+
+  // Handle edge case of empty data
+  if (min === Infinity) min = 0
+  if (max === -Infinity) max = 0
+
+  return { min, max }
+}

@@ -219,7 +219,9 @@ describe("DebuggerGrid", () => {
     await page.screenshot({
       path: "./__snapshots__/v2-grid-multi-root.png",
     })
-    expect(container.textContent).toMatchInlineSnapshot(`"StructureSub #14Sub #21of #0●  .pipe(    map() → #6●2  ) → #6of #7●  .pipe(    filter() → #13●2  ) → #13Sendsnext: 2completenext: 2complete"`)
+    expect(container.textContent).toMatchInlineSnapshot(
+      `"StructureSub #14Sub #21of #0●  .pipe(    map() → #6●2  ) → #6of #7●  .pipe(    filter() → #13●2  ) → #13Sendsnext: 2completenext: 2complete"`,
+    )
   })
   it("renders repeat with sends", async () => {
     setNow(1000)
@@ -594,6 +596,46 @@ describe("DebuggerGrid", () => {
     })
     expect(container.textContent).toMatchInlineSnapshot(
       `"StructureSub #15from #0  .pipe(    repeat() → #12●    tap() → #14●5  ) → #14Sendsnext: 12next: 15next: 12next: 15complete"`,
+    )
+  })
+
+  it("clicks sub header to show marble diagram", async () => {
+    // Use the repeat test data which has interesting subscription tree
+    setNow(1000)
+    let index = 0
+    proxy
+      .from([12, 15])
+      .pipe(
+        proxy.repeat({
+          delay: () => proxy.of(true),
+          count: 2,
+        }),
+        proxy.tap({
+          next: () => setNow(++index * 1000),
+          complete: () => setNow(++index * 1000),
+          error: () => setNow(++index * 1000),
+        }),
+      )
+      .subscribe()
+
+    const { container } = render(<DebuggerGrid />)
+    await new Promise(r => setTimeout(r, 100))
+
+    // Click on Sub #15 header to enter marble diagram view
+    const subButton = container.querySelector('button[title="Click to view marble diagram"]') as HTMLButtonElement
+    expect(subButton).not.toBeNull()
+    subButton.click()
+
+    await new Promise(r => setTimeout(r, 100))
+    await page.screenshot({
+      path: "./__snapshots__/v2-marble-diagram.png",
+    })
+
+    // Verify we're in marble diagram view
+    expect(container.textContent).toContain("← Back to Overview")
+    expect(container.textContent).toContain("Sub #15 Tree")
+    expect(container.textContent).toMatchInlineSnapshot(
+      `"← Back to OverviewSub #15 Tree#15 (obs)●●●●|└─#16 (obs)●●●●|└─#17 (from)●●|└─#30 (of)●|└─#32 (from)●●|1600ms2400ms3200ms4000ms4800ms"`,
     )
   })
 })
