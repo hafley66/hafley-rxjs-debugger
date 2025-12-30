@@ -12,7 +12,7 @@ import { BehaviorSubject } from "rxjs/internal/BehaviorSubject"
 import { Observable } from "rxjs/internal/Observable"
 import { Subject } from "rxjs/internal/Subject"
 import { filter, scan, startWith } from "rxjs/operators"
-import { bootstrap } from "./00b.patch-observable"
+import { bootstrap } from "./01.patch-observable"
 
 type Prettify<T> = { [K in keyof T]: T[K] } & NonNullable<unknown>
 
@@ -31,7 +31,7 @@ export type ObservableEvent =
       | { type: "arg-call-return"; id: string; observable_id?: string; subscription_id?: string }
     )
   | { type: "constructor-call-return"; id: string; observable: Observable<any>; source: string }
-  | { type: "factory-call-return"; id: string; observable: Observable<any>; args: any[]; name: string }
+  | { type: "factory-call-return"; observable: Observable<any>; args: any[]; name: string }
   | ({ observable_id: string; id: string } & (
       | { type: "pipe-get" }
       | { type: "pipe-call"; args: any[]; index: number }

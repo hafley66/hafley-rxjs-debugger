@@ -34,8 +34,8 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
 
     configResolved(resolvedConfig) {
       config = resolvedConfig
-      resolvedPatchModulePath = patchModulePath ?? path.resolve(config.root, "src/tracking/v2/00b.patch-observable")
-      log("Patch module path:", resolvedPatchModulePath)
+      resolvedPatchModulePath = patchModulePath ?? path.resolve(config.root, "src/tracking/v2/01.patch-observable")
+      // log("Patch module path:", resolvedPatchModulePath)
     },
 
     resolveId(source) {
@@ -45,7 +45,7 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
 
         if (source === "rxjs") {
           const resolved = path.join(rxjsPath, "src/index.ts")
-          log("Resolving rxjs ->", resolved)
+          // log("Resolving rxjs ->", resolved)
           return resolved
         }
 
@@ -60,7 +60,7 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
           resolved = path.join(rxjsPath, "src", subpath, "index.ts")
         }
 
-        log(`Resolving ${source} ->`, resolved)
+        // log(`Resolving ${source} ->`, resolved)
         return resolved
       }
 
@@ -68,7 +68,7 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
     },
 
     transform(code, id) {
-      console.log(id)
+      // console.log(id)
       if (!id.includes("node_modules/rxjs/src")) {
         return null
       }
@@ -83,7 +83,7 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
 
       for (const { file, className } of classesToTransform) {
         if (id.endsWith(file)) {
-          log(`Transforming ${className}`)
+          // log(`Transforming ${className}`)
           return transformObservable(code, className, resolvedPatchModulePath, id)
         }
       }

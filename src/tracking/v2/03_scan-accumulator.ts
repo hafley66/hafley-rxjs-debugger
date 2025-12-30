@@ -112,6 +112,11 @@ observableEventsEnabled$
           const val = state.stack.send.pop()
           if (!val) break
           val.created_at_end = now()
+          // Pop parent subscription if we pushed one during arg-call
+          if ((val as any)._pushedParentSub) {
+            state.stack.subscription.pop()
+            delete (val as any)._pushedParentSub
+          }
           break
         }
 
@@ -121,7 +126,12 @@ observableEventsEnabled$
             id: event.id,
             name: event.name,
           }
-          state.stack.operator.push(state.store.operator[event.id]!)
+          state.stack.operator_fun.push(state.store.operator_fun[event.id]!)
+          // Crawl args to find and wrap functions (delay, project, etc.)
+          const args = crawlArgs(event.args, event.id)
+          for (const arg of args) {
+            state.store.arg[arg.id] = arg
+          }
           break
         }
         case "operator-fun-call-return": {
@@ -152,20 +162,44 @@ observableEventsEnabled$
         }
 
         case "arg-call": {
-          state.store.arg_call[event.id] = {
+          // Get the current subscription from the send stack
+          const currentSendSub = state.stack.send[state.stack.send.length - 1]?.subscription_id
+          const currentSub = currentSendSub ? state.store.subscription[currentSendSub] : undefined
+
+          // For higher-order operators, push the parent subscription onto the stack
+          // so inner observables get the correct parent (stays until send-call-return)
+          if (currentSub?.parent_subscription_id) {
+            const parentSub = state.store.subscription[currentSub.parent_subscription_id]
+            if (parentSub) {
+              state.stack.subscription.push(parentSub)
+              // Track on the send so we know to pop in send-call-return
+              const currentSend = state.stack.send[state.stack.send.length - 1]
+              if (currentSend) {
+                ;(currentSend as any)._pushedParentSub = true
+              }
+            }
+          }
+
+          const entity = {
             arg_id: event.arg_id,
             created_at: now(),
             id: event.id,
             input_values: event.args,
             subscription_id: state.stack.subscription[state.stack.subscription.length - 1]?.id ?? "unknown",
           }
+          state.stack.arg_call.push(entity)
           break
         }
         case "arg-call-return": {
           const val = state.stack.arg_call.pop()
           if (!val) break
-          val.created_at_end = now()
-          val.observable_id = event.observable_id
+
+          // Only store if it returned an observable
+          if (event.observable_id && event.observable_id !== "UNKNOWN") {
+            val.created_at_end = now()
+            val.observable_id = event.observable_id
+            state.store.arg_call[val.id] = val
+          }
           break
         }
       }

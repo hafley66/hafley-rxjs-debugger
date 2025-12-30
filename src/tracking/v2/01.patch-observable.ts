@@ -229,7 +229,7 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
 // Re-export for constructor injection
 export { createId, observableIdMap }
 
-export const decorateOperatorFun = <T extends Function>(operator_fun: T, name = operator_fun.name) => {
+export const decorateOperatorFun = <T extends Function>(operator_fun: T, name = operator_fun.name): T => {
   const decorated = {
     [name]: (...args: any[]) => {
       const id = createId()
@@ -250,16 +250,14 @@ export const decorateOperatorFun = <T extends Function>(operator_fun: T, name = 
   }[name]
 
   ;(decorated! as any).displayName = name
-  return decorated
+  return decorated as unknown as T
 }
 
-export const decorateCreate = <T extends Function>(fun: T, name = fun.name) => {
+export const decorateCreate = <T extends Function>(fun: T, name = fun.name): T => {
   const decorated = (...args: any[]) => {
-    const id = createId()
     const out = fun(...args)
     emit({
       type: "factory-call-return",
-      id,
       observable: out,
       args,
       name,
@@ -269,7 +267,7 @@ export const decorateCreate = <T extends Function>(fun: T, name = fun.name) => {
 
   decorated.displayName = name
 
-  return decorated
+  return decorated as unknown as T
 }
 
 export const decorateHigherMap = <T extends Function>(operator_fun: T, name = operator_fun.name) => {}

@@ -2,6 +2,7 @@ import type { Observable } from "rxjs"
 import { v7 } from "uuid"
 
 let _idCounter = 0
+let _mockNow: number | null = null
 const isTest = process.env.NODE_ENV === "test" || import.meta.env?.MODE === "test"
 
 export function resetIdCounter() {
@@ -16,7 +17,11 @@ export function createId(): string {
 }
 
 export function now(): number {
-  return performance.now()
+  return _mockNow ?? performance.now()
+}
+
+export function setNow(time: number | null) {
+  _mockNow = time
 }
 
 export const observableIdMap = new WeakMap<Observable<any>, string>()

@@ -1,6 +1,6 @@
 import { from, of } from "rxjs"
 import * as rx from "rxjs/operators"
-import { decorateCreate, decorateOperatorFun } from "./00b.patch-observable"
+import { decorateCreate, decorateOperatorFun } from "./01.patch-observable"
 
 export const proxy = {
   map: decorateOperatorFun(rx.map),
@@ -10,6 +10,7 @@ export const proxy = {
   skip: decorateOperatorFun(rx.skip),
   repeat: decorateOperatorFun(rx.repeat),
   share: decorateOperatorFun(rx.share),
+  tap: decorateOperatorFun(rx.tap),
   switchMap: decorateOperatorFun(rx.switchMap),
   combineLatest: decorateCreate(rx.combineLatest),
   merge: decorateCreate(rx.merge),

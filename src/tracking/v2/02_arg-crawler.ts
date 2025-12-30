@@ -44,6 +44,7 @@ export function findArgs(value: unknown, path = "$args", depth = 0, rootVal: any
         id,
         observable_id: observableIdMap.get(out) ?? "UNKNOWN",
       })
+      return out
     })
     return args
   }
