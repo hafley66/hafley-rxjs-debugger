@@ -6,22 +6,27 @@ observableEventsEnabled$
   .pipe(
     state$.scanEager((state, event) => {
       switch (event.type) {
-        case "constructor-call": {
-          state.stack.observable.push({
+        case "constructor-call-return": {
+          state.store.observable[event.id] = {
             id: event.id,
             created_at: now(),
-            name: `new ${event.source}`,
-          })
-          state.store.observable[event.id] = state.stack.observable[state.stack.observable.length - 1]!
+            created_at_end: now(),
+            name: `new ${event.observable.constructor.name}`,
+          }
+          observableIdMap.set(event.observable, event.id)
           break
         }
 
-        case "constructor-call-return": {
-          const entity = state.stack.observable.pop()
-          observableIdMap.set(event.observable, event.id)
-
-          if (!entity) break
-          entity.created_at_end = now()
+        case "factory-call-return": {
+          const obsId = observableIdMap.get(event.observable) ?? "unknown"
+          if (state.store.observable[obsId]) {
+            state.store.observable[obsId].name = event.name // override "new Observable" with "from"/"of"/etc
+          }
+          const args = crawlArgs(event.args, obsId)
+          for (const arg of args) {
+            state.store.arg[arg.id] = arg
+            arg.observable_id = obsId
+          }
           break
         }
 
@@ -161,15 +166,6 @@ observableEventsEnabled$
           if (!val) break
           val.created_at_end = now()
           val.observable_id = event.observable_id
-          break
-        }
-        case "factory-call-return": {
-          const obsId = observableIdMap.get(event.observable) ?? "unknown"
-          const args = crawlArgs(event.args, obsId)
-          for (const arg of args) {
-            state.store.arg[arg.id] = arg
-            arg.observable_id = obsId
-          }
           break
         }
       }

@@ -1,6 +1,6 @@
 import { from, of } from "rxjs"
-import rx from "rxjs/operators"
-import { decorateCreate, decorateOperatorFun } from "./00.class-proxy"
+import * as rx from "rxjs/operators"
+import { decorateCreate, decorateOperatorFun } from "./00b.patch-observable"
 
 export const proxy = {
   map: decorateOperatorFun(rx.map),

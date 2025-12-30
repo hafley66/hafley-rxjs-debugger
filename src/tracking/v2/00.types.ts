@@ -12,6 +12,7 @@ import { BehaviorSubject } from "rxjs/internal/BehaviorSubject"
 import { Observable } from "rxjs/internal/Observable"
 import { Subject } from "rxjs/internal/Subject"
 import { filter, scan, startWith } from "rxjs/operators"
+import { bootstrap } from "./00b.patch-observable"
 
 type Prettify<T> = { [K in keyof T]: T[K] } & NonNullable<unknown>
 
@@ -20,7 +21,7 @@ export type ObservableRef = {
   path: string // lodash-style: "args.0.delay.$return"
 }
 
-export const _observableEvents$ = new Subject<
+export type ObservableEvent =
   | (
       | { type: "operator-fun-call"; id: string; name: string; args: any[] }
       | { type: "operator-fun-call-return"; id: string }
@@ -29,11 +30,8 @@ export const _observableEvents$ = new Subject<
       | { type: "arg-call"; id: string; arg_id: string; args: any[] }
       | { type: "arg-call-return"; id: string; observable_id?: string; subscription_id?: string }
     )
-  | ({ source: string } & ( // Auto id pre obs construction
-      | { type: "constructor-call"; id: string }
-      | { type: "constructor-call-return"; id: string; observable: Observable<any> }
-    ))
-  | { type: "factory-call-return"; id: string; observable: Observable<any>; args: any[] }
+  | { type: "constructor-call-return"; id: string; observable: Observable<any>; source: string }
+  | { type: "factory-call-return"; id: string; observable: Observable<any>; args: any[]; name: string }
   | ({ observable_id: string; id: string } & (
       | { type: "pipe-get" }
       | { type: "pipe-call"; args: any[]; index: number }
@@ -49,7 +47,12 @@ export const _observableEvents$ = new Subject<
       | { type: "unsubscribe-call"; args: any[]; index: number }
       | { type: "unsubscribe-call-return" }
     ))
->()
+
+export const _observableEvents$ = new Subject<ObservableEvent>()
+
+// Bootstrap the late-bound emitter after module initialization completes
+// Using queueMicrotask to defer until after all module-level code runs
+queueMicrotask(() => bootstrap(_observableEvents$, () => state$.value.isEnabled))
 
 type Hmm = {
   // Unified observable entity (collapse Subject/BehaviorSubject/creation ops)
@@ -117,6 +120,13 @@ export function scanEager<Event, State>(acc: (sum: State, next: Event) => State,
 }
 
 class EasierBS<T extends {}> extends BehaviorSubject<T> {
+  private _initialValue: T
+
+  constructor(initialValue: T) {
+    super(initialValue)
+    this._initialValue = initialValue
+  }
+
   set(partial: Partial<T>) {
     return this.next({
       ...this.value,
@@ -124,9 +134,13 @@ class EasierBS<T extends {}> extends BehaviorSubject<T> {
     })
   }
 
+  reset() {
+    return this.next(structuredClone(this._initialValue))
+  }
+
   scanEager<Next>(accumulator: (sum: T, next: Next) => T) {
     return (source$: Observable<Next>) => {
-      return source$.pipe(scanEager(accumulator, this.value))
+      return source$.pipe(scanEager((_sum, next) => accumulator(this.value, next), this.value))
     }
   }
 }
