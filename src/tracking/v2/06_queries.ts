@@ -56,9 +56,14 @@ export function getSendsFor(store: Store, subId: string) {
     .sort((a, b) => a.created_at - b.created_at)
 }
 
-// Get all sends sorted by time
+// Get all sends sorted by time (with id as tiebreaker for same timestamp)
 export function getAllSends(store: Store) {
-  return Object.values(store.send).sort((a, b) => a.created_at - b.created_at)
+  return Object.values(store.send).sort((a, b) => {
+    const timeDiff = a.created_at - b.created_at
+    if (timeDiff !== 0) return timeDiff
+    // Use numeric id comparison as tiebreaker (IDs are sequential)
+    return Number(a.id) - Number(b.id)
+  })
 }
 
 // Get dynamic observables created by an arg during a subscription

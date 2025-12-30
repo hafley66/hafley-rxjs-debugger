@@ -12,10 +12,17 @@ import { createId, observableIdMap } from "./01_helpers"
 // Late-bound references - set by bootstrap
 let _emit: ((event: ObservableEvent) => void) | null = null
 let _getIsEnabled: (() => boolean) | null = null
+let _getIsTracking: (() => boolean) | null = null
 const _buffer: ObservableEvent[] = []
 
+const shouldEmit = (): boolean => {
+  const enabled = _getIsEnabled?.() ?? false
+  const tracking = _getIsTracking?.() ?? true // default true for backward compat
+  return enabled && tracking
+}
+
 export const emit = (event: ObservableEvent) => {
-  if (!isEnabled()) return
+  if (!shouldEmit()) return
   if (_emit) {
     _emit(event)
   } else {
@@ -23,13 +30,18 @@ export const emit = (event: ObservableEvent) => {
   }
 }
 
-export const bootstrap = (subject: { next: (e: ObservableEvent) => void }, getIsEnabled: () => boolean) => {
+export const bootstrap = (
+  subject: { next: (e: ObservableEvent) => void },
+  getIsEnabled: () => boolean,
+  getIsTracking: () => boolean,
+) => {
   for (const event of _buffer) {
     subject.next(event)
   }
   _buffer.length = 0
   _emit = e => subject.next(e)
   _getIsEnabled = getIsEnabled
+  _getIsTracking = getIsTracking
 }
 
 const isEnabled = () => _getIsEnabled?.() ?? false
@@ -176,10 +188,11 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
         })
       },
       error: (err: any) => {
+        const emitId = createId()
         emit({
           subscription_id,
           type: "send-call",
-          id,
+          id: emitId,
           observable_id,
           kind: "error",
           error: err,
@@ -187,22 +200,23 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
         observer.error(err)
         emit({
           type: "send-call-return",
-          id,
+          id: emitId,
           observable_id,
         })
       },
       complete: () => {
+        const emitId = createId()
         emit({
           subscription_id,
           type: "send-call",
-          id,
+          id: emitId,
           observable_id,
           kind: "complete",
         })
         observer.complete()
         emit({
           type: "send-call-return",
-          id,
+          id: emitId,
           observable_id,
         })
       },

@@ -12,7 +12,10 @@ import { BehaviorSubject } from "rxjs/internal/BehaviorSubject"
 import { Observable } from "rxjs/internal/Observable"
 import { Subject } from "rxjs/internal/Subject"
 import { filter, scan, startWith } from "rxjs/operators"
+import { isTracking, track } from "./01_helpers"
 import { bootstrap } from "./01.patch-observable"
+
+export { track }
 
 type Prettify<T> = { [K in keyof T]: T[K] } & NonNullable<unknown>
 
@@ -52,7 +55,7 @@ export const _observableEvents$ = new Subject<ObservableEvent>()
 
 // Bootstrap the late-bound emitter after module initialization completes
 // Using queueMicrotask to defer until after all module-level code runs
-queueMicrotask(() => bootstrap(_observableEvents$, () => state$.value.isEnabled))
+queueMicrotask(() => bootstrap(_observableEvents$, () => state$.value.isEnabled, isTracking))
 
 type Hmm = {
   // Unified observable entity (collapse Subject/BehaviorSubject/creation ops)

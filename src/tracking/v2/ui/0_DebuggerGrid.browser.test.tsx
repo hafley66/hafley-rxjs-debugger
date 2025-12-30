@@ -2,7 +2,7 @@ import { cleanup, render } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { page } from "vitest/browser"
 import { state$ } from "../00.types"
-import { resetIdCounter, setNow } from "../01_helpers"
+import { resetIdCounter, setNow, track } from "../01_helpers"
 
 import "../03_scan-accumulator"
 import { proxy } from "../04.operators"
@@ -15,9 +15,11 @@ describe("DebuggerGrid", () => {
     setNow(0)
     state$.reset()
     state$.set({ isEnabled: true })
+    track(true)
   })
 
   afterEach(() => {
+    track(false)
     resetIdCounter()
     setNow(null)
     state$.set({ isEnabled: false })
@@ -118,14 +120,6 @@ describe("DebuggerGrid", () => {
           },
         },
         "send": {
-          "13": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "13",
-            "observable_id": "11",
-            "subscription_id": "13",
-            "type": "complete",
-          },
           "14": {
             "created_at": 0,
             "created_at_end": 0,
@@ -144,20 +138,28 @@ describe("DebuggerGrid", () => {
             "type": "next",
             "value": "0/5",
           },
-          "7": {
+          "16": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "7",
-            "observable_id": "6",
-            "subscription_id": "7",
+            "id": "16",
+            "observable_id": "11",
+            "subscription_id": "13",
             "type": "complete",
           },
-          "8": {
+          "17": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "8",
+            "id": "17",
             "observable_id": "0",
             "subscription_id": "8",
+            "type": "complete",
+          },
+          "18": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "18",
+            "observable_id": "6",
+            "subscription_id": "7",
             "type": "complete",
           },
           "9": {
@@ -217,8 +219,7 @@ describe("DebuggerGrid", () => {
     await page.screenshot({
       path: "./__snapshots__/v2-grid-multi-root.png",
     })
-    expect(container.textContent).toContain("map")
-    expect(container.textContent).toContain("filter")
+    expect(container.textContent).toMatchInlineSnapshot(`"StructureSub #14Sub #21of #0●  .pipe(    map() → #6●2  ) → #6of #7●  .pipe(    filter() → #13●2  ) → #13Sendsnext: 2completenext: 2complete"`)
   })
   it("renders repeat with sends", async () => {
     setNow(1000)
@@ -267,12 +268,12 @@ describe("DebuggerGrid", () => {
             "path": "$args.0.1",
             "value": 15,
           },
-          "28": {
+          "29": {
             "created_at": 2000,
-            "id": "28",
+            "id": "29",
             "is_function": false,
-            "observable_id": "27",
-            "owner_id": "27",
+            "observable_id": "28",
+            "owner_id": "28",
             "path": "$args.0",
             "value": true,
           },
@@ -310,15 +311,15 @@ describe("DebuggerGrid", () => {
           },
         },
         "arg_call": {
-          "26": {
+          "27": {
             "arg_id": "5",
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "26",
+            "id": "27",
             "input_values": [
               1,
             ],
-            "observable_id": "27",
+            "observable_id": "28",
             "subscription_id": "16",
           },
         },
@@ -329,10 +330,10 @@ describe("DebuggerGrid", () => {
             "id": "0",
             "name": "from",
           },
-          "27": {
+          "28": {
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "27",
+            "id": "28",
             "name": "of",
           },
         },
@@ -382,30 +383,6 @@ describe("DebuggerGrid", () => {
           },
         },
         "send": {
-          "15": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "15",
-            "observable_id": "14",
-            "subscription_id": "15",
-            "type": "complete",
-          },
-          "16": {
-            "created_at": 4000,
-            "created_at_end": 5000,
-            "id": "16",
-            "observable_id": "12",
-            "subscription_id": "16",
-            "type": "complete",
-          },
-          "17": {
-            "created_at": 2000,
-            "created_at_end": 2000,
-            "id": "17",
-            "observable_id": "0",
-            "subscription_id": "17",
-            "type": "complete",
-          },
           "18": {
             "created_at": 1000,
             "created_at_end": 1000,
@@ -460,84 +437,108 @@ describe("DebuggerGrid", () => {
             "type": "next",
             "value": 15,
           },
-          "29": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "29",
-            "observable_id": "27",
-            "subscription_id": "29",
-            "type": "complete",
-          },
-          "30": {
+          "26": {
             "created_at": 2000,
-            "created_at_end": 5000,
-            "id": "30",
-            "observable_id": "27",
-            "subscription_id": "29",
-            "type": "next",
-            "value": true,
+            "created_at_end": 2000,
+            "id": "26",
+            "observable_id": "0",
+            "subscription_id": "17",
+            "type": "complete",
           },
           "31": {
-            "created_at": 4000,
+            "created_at": 2000,
             "created_at_end": 5000,
             "id": "31",
-            "observable_id": "0",
-            "subscription_id": "31",
-            "type": "complete",
-          },
-          "32": {
-            "created_at": 2000,
-            "created_at_end": 3000,
-            "id": "32",
-            "observable_id": "0",
-            "subscription_id": "31",
+            "observable_id": "28",
+            "subscription_id": "30",
             "type": "next",
-            "value": 12,
+            "value": true,
           },
           "33": {
             "created_at": 2000,
             "created_at_end": 3000,
             "id": "33",
-            "observable_id": "12",
-            "subscription_id": "16",
+            "observable_id": "0",
+            "subscription_id": "32",
             "type": "next",
             "value": 12,
           },
-          "35": {
-            "created_at": 3000,
+          "34": {
+            "created_at": 2000,
             "created_at_end": 3000,
-            "id": "35",
-            "observable_id": "14",
-            "subscription_id": "15",
+            "id": "34",
+            "observable_id": "12",
+            "subscription_id": "16",
             "type": "next",
             "value": 12,
           },
           "36": {
             "created_at": 3000,
-            "created_at_end": 4000,
+            "created_at_end": 3000,
             "id": "36",
-            "observable_id": "0",
-            "subscription_id": "31",
+            "observable_id": "14",
+            "subscription_id": "15",
             "type": "next",
-            "value": 15,
+            "value": 12,
           },
           "37": {
             "created_at": 3000,
             "created_at_end": 4000,
             "id": "37",
+            "observable_id": "0",
+            "subscription_id": "32",
+            "type": "next",
+            "value": 15,
+          },
+          "38": {
+            "created_at": 3000,
+            "created_at_end": 4000,
+            "id": "38",
             "observable_id": "12",
             "subscription_id": "16",
             "type": "next",
             "value": 15,
           },
-          "39": {
+          "40": {
             "created_at": 4000,
             "created_at_end": 4000,
-            "id": "39",
+            "id": "40",
             "observable_id": "14",
             "subscription_id": "15",
             "type": "next",
             "value": 15,
+          },
+          "41": {
+            "created_at": 4000,
+            "created_at_end": 5000,
+            "id": "41",
+            "observable_id": "0",
+            "subscription_id": "32",
+            "type": "complete",
+          },
+          "42": {
+            "created_at": 4000,
+            "created_at_end": 5000,
+            "id": "42",
+            "observable_id": "12",
+            "subscription_id": "16",
+            "type": "complete",
+          },
+          "44": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "44",
+            "observable_id": "14",
+            "subscription_id": "15",
+            "type": "complete",
+          },
+          "45": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "45",
+            "observable_id": "28",
+            "subscription_id": "30",
+            "type": "complete",
           },
         },
         "subscription": {
@@ -567,21 +568,21 @@ describe("DebuggerGrid", () => {
             "unsubscribed_at": 2000,
             "unsubscribed_at_end": 2000,
           },
-          "29": {
+          "30": {
             "created_at": 2000,
             "created_at_end": 5000,
-            "id": "29",
+            "id": "30",
             "is_sync": false,
-            "observable_id": "27",
+            "observable_id": "28",
             "parent_subscription_id": "16",
           },
-          "31": {
+          "32": {
             "created_at": 2000,
             "created_at_end": 5000,
-            "id": "31",
+            "id": "32",
             "is_sync": false,
             "observable_id": "0",
-            "parent_subscription_id": "29",
+            "parent_subscription_id": "30",
           },
         },
       }
@@ -592,7 +593,7 @@ describe("DebuggerGrid", () => {
       path: "./__snapshots__/v2-grid-repeat.png",
     })
     expect(container.textContent).toMatchInlineSnapshot(
-      `"StructureSub #15Sub #41from #0  .pipe(    repeat() → #12●    tap() → #14●5  ) → #14Sends#18next: 12obs#0sub#17#19next: 12obs#12sub#16#21next: 12obs#14sub#15#22next: 15obs#0sub#17#23next: 15obs#12sub#16#17completeobs#0sub#17#25next: 15obs#14sub#15#30next: trueobs#27sub#29#32next: 12obs#0sub#31#33next: 12obs#12sub#16#35next: 12obs#14sub#15#36next: 15obs#0sub#31#37next: 15obs#12sub#16#16completeobs#12sub#16#31completeobs#0sub#31#39next: 15obs#14sub#15#15completeobs#14sub#15#29completeobs#27sub#29#42next: [object Object]obs#2sub#41"`,
+      `"StructureSub #15from #0  .pipe(    repeat() → #12●    tap() → #14●5  ) → #14Sendsnext: 12next: 15next: 12next: 15complete"`,
     )
   })
 })

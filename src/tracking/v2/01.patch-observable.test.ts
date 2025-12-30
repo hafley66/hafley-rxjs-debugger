@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { state$ } from "./00.types"
-import { resetIdCounter, setNow } from "./01_helpers"
+import { resetIdCounter, setNow, track } from "./01_helpers"
 import "./03_scan-accumulator"
 import { BehaviorSubject, lastValueFrom, Observable, Subject, tap } from "rxjs"
 import { proxy } from "./04.operators"
@@ -25,9 +25,11 @@ describe("Class proxy events", () => {
     setNow(0)
     state$.reset()
     state$.set({ isEnabled: true })
+    track(true)
   })
 
   afterEach(() => {
+    track(false)
     resetIdCounter()
     setNow(null)
     state$.set({ isEnabled: false })
@@ -94,15 +96,6 @@ describe("Class proxy events", () => {
             "path": "$args.1",
             "value": 15,
           },
-          "29": {
-            "created_at": 2000,
-            "id": "29",
-            "is_function": false,
-            "observable_id": "28",
-            "owner_id": "28",
-            "path": "$args.0",
-            "value": true,
-          },
           "3": {
             "created_at": 1000,
             "id": "3",
@@ -110,6 +103,15 @@ describe("Class proxy events", () => {
             "observable_id": "0",
             "owner_id": "0",
             "path": "$args.0",
+          },
+          "30": {
+            "created_at": 2000,
+            "id": "30",
+            "is_function": false,
+            "observable_id": "29",
+            "owner_id": "29",
+            "path": "$args.0",
+            "value": true,
           },
           "6": {
             "created_at": 1000,
@@ -139,15 +141,15 @@ describe("Class proxy events", () => {
           },
         },
         "arg_call": {
-          "27": {
+          "28": {
             "arg_id": "6",
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "27",
+            "id": "28",
             "input_values": [
               1,
             ],
-            "observable_id": "28",
+            "observable_id": "29",
             "subscription_id": "17",
           },
         },
@@ -158,10 +160,10 @@ describe("Class proxy events", () => {
             "id": "0",
             "name": "from",
           },
-          "28": {
+          "29": {
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "28",
+            "id": "29",
             "name": "of",
           },
         },
@@ -211,30 +213,6 @@ describe("Class proxy events", () => {
           },
         },
         "send": {
-          "16": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "16",
-            "observable_id": "15",
-            "subscription_id": "16",
-            "type": "complete",
-          },
-          "17": {
-            "created_at": 4000,
-            "created_at_end": 5000,
-            "id": "17",
-            "observable_id": "13",
-            "subscription_id": "17",
-            "type": "complete",
-          },
-          "18": {
-            "created_at": 2000,
-            "created_at_end": 2000,
-            "id": "18",
-            "observable_id": "0",
-            "subscription_id": "18",
-            "type": "complete",
-          },
           "19": {
             "created_at": 1000,
             "created_at_end": 1000,
@@ -289,84 +267,108 @@ describe("Class proxy events", () => {
             "type": "next",
             "value": 15,
           },
-          "30": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "30",
-            "observable_id": "28",
-            "subscription_id": "30",
-            "type": "complete",
-          },
-          "31": {
+          "27": {
             "created_at": 2000,
-            "created_at_end": 5000,
-            "id": "31",
-            "observable_id": "28",
-            "subscription_id": "30",
-            "type": "next",
-            "value": true,
+            "created_at_end": 2000,
+            "id": "27",
+            "observable_id": "0",
+            "subscription_id": "18",
+            "type": "complete",
           },
           "32": {
-            "created_at": 4000,
+            "created_at": 2000,
             "created_at_end": 5000,
             "id": "32",
-            "observable_id": "0",
-            "subscription_id": "32",
-            "type": "complete",
-          },
-          "33": {
-            "created_at": 2000,
-            "created_at_end": 3000,
-            "id": "33",
-            "observable_id": "0",
-            "subscription_id": "32",
+            "observable_id": "29",
+            "subscription_id": "31",
             "type": "next",
-            "value": 12,
+            "value": true,
           },
           "34": {
             "created_at": 2000,
             "created_at_end": 3000,
             "id": "34",
-            "observable_id": "13",
-            "subscription_id": "17",
+            "observable_id": "0",
+            "subscription_id": "33",
             "type": "next",
             "value": 12,
           },
-          "36": {
-            "created_at": 3000,
+          "35": {
+            "created_at": 2000,
             "created_at_end": 3000,
-            "id": "36",
-            "observable_id": "15",
-            "subscription_id": "16",
+            "id": "35",
+            "observable_id": "13",
+            "subscription_id": "17",
             "type": "next",
             "value": 12,
           },
           "37": {
             "created_at": 3000,
-            "created_at_end": 4000,
+            "created_at_end": 3000,
             "id": "37",
-            "observable_id": "0",
-            "subscription_id": "32",
+            "observable_id": "15",
+            "subscription_id": "16",
             "type": "next",
-            "value": 15,
+            "value": 12,
           },
           "38": {
             "created_at": 3000,
             "created_at_end": 4000,
             "id": "38",
+            "observable_id": "0",
+            "subscription_id": "33",
+            "type": "next",
+            "value": 15,
+          },
+          "39": {
+            "created_at": 3000,
+            "created_at_end": 4000,
+            "id": "39",
             "observable_id": "13",
             "subscription_id": "17",
             "type": "next",
             "value": 15,
           },
-          "40": {
+          "41": {
             "created_at": 4000,
             "created_at_end": 4000,
-            "id": "40",
+            "id": "41",
             "observable_id": "15",
             "subscription_id": "16",
             "type": "next",
             "value": 15,
+          },
+          "42": {
+            "created_at": 4000,
+            "created_at_end": 5000,
+            "id": "42",
+            "observable_id": "0",
+            "subscription_id": "33",
+            "type": "complete",
+          },
+          "43": {
+            "created_at": 4000,
+            "created_at_end": 5000,
+            "id": "43",
+            "observable_id": "13",
+            "subscription_id": "17",
+            "type": "complete",
+          },
+          "45": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "45",
+            "observable_id": "15",
+            "subscription_id": "16",
+            "type": "complete",
+          },
+          "46": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "46",
+            "observable_id": "29",
+            "subscription_id": "31",
+            "type": "complete",
           },
         },
         "subscription": {
@@ -396,21 +398,21 @@ describe("Class proxy events", () => {
             "unsubscribed_at": 2000,
             "unsubscribed_at_end": 2000,
           },
-          "30": {
+          "31": {
             "created_at": 2000,
             "created_at_end": 5000,
-            "id": "30",
+            "id": "31",
             "is_sync": false,
-            "observable_id": "28",
+            "observable_id": "29",
             "parent_subscription_id": "17",
           },
-          "32": {
+          "33": {
             "created_at": 2000,
             "created_at_end": 5000,
-            "id": "32",
+            "id": "33",
             "is_sync": false,
             "observable_id": "0",
-            "parent_subscription_id": "30",
+            "parent_subscription_id": "31",
           },
         },
       }
@@ -722,14 +724,6 @@ describe("Class proxy events", () => {
           },
         },
         "send": {
-          "13": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "13",
-            "observable_id": "11",
-            "subscription_id": "13",
-            "type": "complete",
-          },
           "14": {
             "created_at": 0,
             "created_at_end": 0,
@@ -748,20 +742,28 @@ describe("Class proxy events", () => {
             "type": "next",
             "value": "0/5",
           },
-          "7": {
+          "16": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "7",
-            "observable_id": "6",
-            "subscription_id": "7",
+            "id": "16",
+            "observable_id": "11",
+            "subscription_id": "13",
             "type": "complete",
           },
-          "8": {
+          "17": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "8",
+            "id": "17",
             "observable_id": "0",
             "subscription_id": "8",
+            "type": "complete",
+          },
+          "18": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "18",
+            "observable_id": "6",
+            "subscription_id": "7",
             "type": "complete",
           },
           "9": {
@@ -815,7 +817,7 @@ describe("Class proxy events", () => {
           share(),  // #6
         )           // -> #6
       new Subject   // #8
-      new Subject   // #18"
+      new Subject   // #21"
     `)
   })
 
@@ -888,9 +890,11 @@ describe("06_queries", () => {
     setNow(0)
     state$.reset()
     state$.set({ isEnabled: true })
+    track(true)
   })
 
   afterEach(() => {
+    track(false)
     resetIdCounter()
     setNow(null)
     state$.set({ isEnabled: false })
@@ -993,8 +997,8 @@ describe("06_queries", () => {
           "parent": undefined,
         },
         {
-          "id": "6",
-          "observable_id": "4",
+          "id": "7",
+          "observable_id": "5",
           "parent": undefined,
         },
       ]
@@ -1037,14 +1041,6 @@ describe("06_queries", () => {
         {
           "created_at": 0,
           "created_at_end": 0,
-          "id": "3",
-          "observable_id": "0",
-          "subscription_id": "3",
-          "type": "complete",
-        },
-        {
-          "created_at": 0,
-          "created_at_end": 0,
           "id": "4",
           "observable_id": "0",
           "subscription_id": "3",
@@ -1059,6 +1055,14 @@ describe("06_queries", () => {
           "subscription_id": "3",
           "type": "next",
           "value": 2,
+        },
+        {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "6",
+          "observable_id": "0",
+          "subscription_id": "3",
+          "type": "complete",
         },
       ]
     `)
@@ -1076,16 +1080,11 @@ describe("06_queries", () => {
       [
         {
           "created_at": 100,
-          "type": "complete",
-          "value": undefined,
-        },
-        {
-          "created_at": 100,
           "type": "next",
           "value": 1,
         },
         {
-          "created_at": 200,
+          "created_at": 100,
           "type": "complete",
           "value": undefined,
         },
@@ -1093,6 +1092,11 @@ describe("06_queries", () => {
           "created_at": 200,
           "type": "next",
           "value": 2,
+        },
+        {
+          "created_at": 200,
+          "type": "complete",
+          "value": undefined,
         },
       ]
     `)

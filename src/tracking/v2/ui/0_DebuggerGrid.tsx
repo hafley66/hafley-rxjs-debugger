@@ -1,73 +1,109 @@
 import { useEffect, useState } from "react"
 import { state$ } from "../00.types"
-import { decycle } from "../01_helpers"
+import { decycle, isTracking, track } from "../01_helpers"
 import { getAllSends, getRootObservables, getTopLevelSubscriptions } from "../06_queries"
 
 export function DebuggerGrid() {
   const [, forceUpdate] = useState(0)
 
   useEffect(() => {
+    // Disable tracking for internal state subscription
+    const prev = isTracking()
+    track(false)
     const sub = state$.subscribe(() => forceUpdate(n => n + 1))
+    track(prev)
     return () => sub.unsubscribe()
   }, [])
 
   const store = state$.value.store
   const roots = getRootObservables(store)
   const subs = getTopLevelSubscriptions(store)
-  const sends = getAllSends(store)
+  const subIds = subs.map(s => s.id)
+
+  // Get all sends sorted chronologically
+  const allSends = getAllSends(store)
+
+  const colCount = 1 + subs.length // structure + subs
+
   return (
     <pre>
       <code>
-        <div style={{ fontFamily: "monospace", fontSize: 12 }}>
-          {/* Structure + Subscription columns */}
-          <table style={{ borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={{ textAlign: "left", padding: 4, borderBottom: "1px solid #ccc" }}>Structure</th>
-                {subs.map(s => (
-                  <th key={s.id} style={{ padding: 4, borderBottom: "1px solid #ccc", minWidth: 80 }}>
-                    Sub #{s.id}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {roots.map(obs => (
-                <RootRow key={obs.id} obsId={obs.id} subIds={subs.map(s => s.id)} />
-              ))}
-            </tbody>
-          </table>
+        <div
+          style={{
+            fontFamily: "monospace",
+            fontSize: 12,
+            display: "grid",
+            gridTemplateColumns: `auto repeat(${subs.length}, minmax(100px, 1fr))`,
+            gap: 0,
+          }}
+        >
+          {/* Header row */}
+          <div style={{ padding: 4, borderBottom: "1px solid #ccc", fontWeight: "bold" }}>Structure</div>
+          {subs.map(s => (
+            <div
+              key={s.id}
+              style={{ padding: 4, borderBottom: "1px solid #ccc", fontWeight: "bold", textAlign: "center" }}
+            >
+              Sub #{s.id}
+            </div>
+          ))}
 
-          {/* Sends table */}
-          <div style={{ marginTop: 16, borderTop: "2px solid #666", paddingTop: 8 }}>
-            <div style={{ fontWeight: "bold", marginBottom: 4 }}>Sends</div>
-            <table style={{ borderCollapse: "collapse" }}>
-              <tbody>
-                {sends.map(send => (
-                  <tr key={send.id}>
-                    <td style={{ padding: 4, color: "#666" }}>#{send.id}</td>
-                    <td style={{ padding: 4 }}>
-                      <span
-                        style={{ color: send.type === "error" ? "red" : send.type === "complete" ? "blue" : "green" }}
-                      >
-                        {send.type}
-                      </span>
-                      {send.type === "next" && `: ${decycle(send.value)}`}
-                    </td>
-                    <td style={{ padding: 4, color: "#999" }}>obs#{send.observable_id}</td>
-                    <td style={{ padding: 4, color: "#999" }}>sub#{send.subscription_id}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Structure rows */}
+          {roots.map(obs => (
+            <RootRows key={obs.id} obsId={obs.id} subIds={subIds} />
+          ))}
+
+          {/* Sends section divider - spans all columns */}
+          <div
+            style={{
+              gridColumn: `1 / ${colCount + 1}`,
+              borderTop: "2px solid #666",
+              paddingTop: 8,
+              marginTop: 8,
+              fontWeight: "bold",
+            }}
+          >
+            Sends
           </div>
+
+          {/* Sends rows - one row per send event, chronological */}
+          {allSends.map(send => (
+            <SendRow key={send.id} send={send} subIds={subIds} />
+          ))}
         </div>
       </code>
     </pre>
   )
 }
 
-function RootRow({ obsId, subIds }: { obsId: string; subIds: string[] }) {
+function SendRow({
+  send,
+  subIds,
+}: {
+  send: ReturnType<typeof getAllSends>[number]
+  subIds: string[]
+}) {
+  return (
+    <>
+      {/* Empty first column (aligns with structure) */}
+      <div style={{ padding: 4 }} />
+      {/* One cell per subscription column - only the matching one has content */}
+      {subIds.map(subId => {
+        if (send.subscription_id !== subId) return <div key={subId} style={{ padding: 4 }} />
+        return (
+          <div key={subId} style={{ padding: 4, textAlign: "center" }}>
+            <span style={{ color: send.type === "error" ? "red" : send.type === "complete" ? "blue" : "green" }}>
+              {send.type}
+            </span>
+            {send.type === "next" && <span style={{ color: "#666" }}>: {JSON.stringify(decycle(send.value))}</span>}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+function RootRows({ obsId, subIds }: { obsId: string; subIds: string[] }) {
   const store = state$.value.store
   const obs = store.observable[obsId]
   if (!obs) return null
@@ -77,14 +113,15 @@ function RootRow({ obsId, subIds }: { obsId: string; subIds: string[] }) {
 
   return (
     <>
-      <tr>
-        <td style={{ padding: 4 }}>
-          {obs.name ?? "Observable"} #{obs.id}
-        </td>
-        {subIds.map(subId => (
-          <SubCell key={subId} obsId={obsId} subId={subId} />
-        ))}
-      </tr>
+      {/* Observable row */}
+      <div style={{ padding: 4 }}>
+        {obs.name ?? "Observable"} #{obs.id}
+      </div>
+      {subIds.map(subId => (
+        <SubCell key={subId} obsId={obsId} subId={subId} />
+      ))}
+
+      {/* Pipe rows */}
       {pipes.map(pipe => (
         <PipeRows key={pipe.id} pipeId={pipe.id} subIds={subIds} depth={1} />
       ))}
@@ -105,23 +142,24 @@ function PipeRows({ pipeId, subIds, depth }: { pipeId: string; subIds: string[];
 
   return (
     <>
-      <tr>
-        <td style={{ padding: 4, color: "#666" }}>{indent}.pipe(</td>
-        {subIds.map(subId => (
-          <td key={subId} />
-        ))}
-      </tr>
+      {/* .pipe( opening */}
+      <div style={{ padding: 4, color: "#666" }}>{indent}.pipe(</div>
+      {subIds.map(subId => (
+        <div key={subId} />
+      ))}
+
+      {/* Operator rows */}
       {operators.map(op => (
         <OperatorRow key={op.id} opId={op.id} subIds={subIds} depth={depth + 1} />
       ))}
-      <tr>
-        <td style={{ padding: 4, color: "#666" }}>
-          {indent}) → #{pipe.observable_id}
-        </td>
-        {subIds.map(subId => (
-          <td key={subId} />
-        ))}
-      </tr>
+
+      {/* ) closing */}
+      <div style={{ padding: 4, color: "#666" }}>
+        {indent}) → #{pipe.observable_id}
+      </div>
+      {subIds.map(subId => (
+        <div key={subId} />
+      ))}
     </>
   )
 }
@@ -135,15 +173,15 @@ function OperatorRow({ opId, subIds, depth }: { opId: string; subIds: string[]; 
   const indent = "  ".repeat(depth)
 
   return (
-    <tr>
-      <td style={{ padding: 4 }}>
+    <>
+      <div style={{ padding: 4 }}>
         {indent}
         {opFun?.name ?? "op"}() → #{op.target_observable_id}
-      </td>
+      </div>
       {subIds.map(subId => (
         <SubCell key={subId} obsId={op.target_observable_id} subId={subId} />
       ))}
-    </tr>
+    </>
   )
 }
 
@@ -152,7 +190,7 @@ function SubCell({ obsId, subId }: { obsId: string; subId: string }) {
 
   // Check if this subscription is for this observable or a descendant
   const sub = store.subscription[subId]
-  if (!sub) return <td />
+  if (!sub) return <div />
 
   // Walk up from sub to see if it touches this observable
   const touchesObs =
@@ -165,9 +203,9 @@ function SubCell({ obsId, subId }: { obsId: string; subId: string }) {
   ).length
 
   return (
-    <td style={{ padding: 4, textAlign: "center" }}>
+    <div style={{ padding: 4, textAlign: "center" }}>
       {touchesObs && <span style={{ color: "green" }}>●</span>}
       {sendCount > 0 && <span style={{ marginLeft: 4, color: "#999" }}>{sendCount}</span>}
-    </td>
+    </div>
   )
 }
