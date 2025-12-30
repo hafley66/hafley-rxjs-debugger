@@ -22,7 +22,7 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "test:browser": "vitest --config src/ui/__tests__/browser/vitest.config.ts",
+    "test:browser": "vitest --config vitest.browser.config.ts",
     "typecheck": "tsgo --noEmit"
   },
   "keywords": [

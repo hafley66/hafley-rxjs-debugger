@@ -15,6 +15,7 @@ let _getIsEnabled: (() => boolean) | null = null
 const _buffer: ObservableEvent[] = []
 
 export const emit = (event: ObservableEvent) => {
+  if (!isEnabled()) return
   if (_emit) {
     _emit(event)
   } else {
@@ -31,7 +32,7 @@ export const bootstrap = (subject: { next: (e: ObservableEvent) => void }, getIs
   _getIsEnabled = getIsEnabled
 }
 
-const isEnabled = () => _getIsEnabled?.() ?? true
+const isEnabled = () => _getIsEnabled?.() ?? false
 
 const noop = () => {}
 

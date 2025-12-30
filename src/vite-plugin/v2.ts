@@ -1,32 +1,39 @@
-import MagicString from "magic-string"
 import { createRequire } from "module"
-import { parseSync } from "oxc-parser"
 import path from "path"
 import type { Plugin, ResolvedConfig } from "rolldown-vite"
+
+type VitestConfig = ResolvedConfig & {
+  test?: {
+    browser?: {
+      enabled?: boolean
+    }
+  }
+}
 
 const require = createRequire(import.meta.url)
 
 export interface RxjsDebuggerPluginOptions {
-  /** Enable verbose logging */
   debug?: boolean
-  /** Path to the patch module (defaults to src/tracking/v2/00b.patch-observable) */
   patchModulePath?: string
 }
 
-/**
- * Vite plugin that forces RxJS to be compiled from source and transforms
- * the Observable class to use the debugger's proxy system.
- *
- * This allows us to intercept Observable construction, pipe, subscribe, etc.
- */
+const IMPORT_PATCH = (patchPath: string) =>
+  `import { patchObservable as __patchObservable__, emit as __emit__, createId as __createId__, observableIdMap as __observableIdMap__ } from "${patchPath}";\n`
+
+const CONSTRUCTOR_START = `\nconst __id__ = __createId__();\n`
+const CONSTRUCTOR_END = `\n__observableIdMap__.set(this, __id__);\n__emit__({ type: "constructor-call-return", id: __id__, observable: this });\n`
+const PATCH_CALL = `\n__patchObservable__(Observable);\n`
+
 export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plugin {
   const { debug = false, patchModulePath } = options
-  let config: ResolvedConfig
+  let config: VitestConfig
   let resolvedPatchModulePath: string
 
   const log = (...args: unknown[]) => {
     if (debug) console.log("[rxjs-debugger]", ...args)
   }
+
+  log("Plugin created with options:", options)
 
   return {
     name: "rxjs-debugger-v2",
@@ -35,57 +42,79 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
     configResolved(resolvedConfig) {
       config = resolvedConfig
       resolvedPatchModulePath = patchModulePath ?? path.resolve(config.root, "src/tracking/v2/01.patch-observable")
-      // log("Patch module path:", resolvedPatchModulePath)
+      log("configResolved:", {
+        command: config.command,
+        isProduction: config.isProduction,
+        isBrowser: config.test?.browser?.enabled,
+        resolvedPatchModulePath,
+      })
     },
 
     resolveId(source) {
-      // Force rxjs imports to resolve to source files instead of dist
-      if (source === "rxjs" || source.startsWith("rxjs/")) {
-        const rxjsPath = path.dirname(require.resolve("rxjs/package.json"))
+      if (config.command === "serve" && !config.isProduction) {
+        const isBrowser = config.test?.browser?.enabled
+        if (!isBrowser && (source === "rxjs" || source.startsWith("rxjs/"))) {
+          const rxjsPath = path.dirname(require.resolve("rxjs/package.json"))
+          log("resolveId redirecting:", source)
 
-        if (source === "rxjs") {
-          const resolved = path.join(rxjsPath, "src/index.ts")
-          // log("Resolving rxjs ->", resolved)
-          return resolved
+          if (source === "rxjs") {
+            return path.join(rxjsPath, "src/index.ts")
+          }
+
+          const subpath = source.slice("rxjs/".length)
+          if (subpath === "operators") {
+            return path.join(rxjsPath, "src/operators/index.ts")
+          } else if (subpath.startsWith("internal/")) {
+            return path.join(rxjsPath, `src/${subpath}.ts`)
+          } else {
+            return path.join(rxjsPath, "src", subpath, "index.ts")
+          }
         }
-
-        const subpath = source.slice("rxjs/".length)
-        let resolved: string
-
-        if (subpath === "operators") {
-          resolved = path.join(rxjsPath, "src/operators/index.ts")
-        } else if (subpath.startsWith("internal/")) {
-          resolved = path.join(rxjsPath, `src/${subpath}.ts`)
-        } else {
-          resolved = path.join(rxjsPath, "src", subpath, "index.ts")
-        }
-
-        // log(`Resolving ${source} ->`, resolved)
-        return resolved
       }
-
       return null
     },
 
     transform(code, id) {
-      // console.log(id)
-      if (!id.includes("node_modules/rxjs/src")) {
-        return null
+      const cleanId = id.split("?")[0] ?? id
+
+      // Log all rxjs-related files
+      if (cleanId.includes("/rxjs/")) {
+        log("transform called for rxjs file:", cleanId)
       }
 
-      // Default to just Observable - Subject/BehaviorSubject extend it and get patched via inheritance
-      // But we keep the array in case we want to patch them directly later
-      const classesToTransform = [
-        { file: "internal/Observable.ts", className: "Observable" },
-        // { file: "internal/Subject.ts", className: "Subject" },
-        // { file: "internal/BehaviorSubject.ts", className: "BehaviorSubject" },
-      ]
-
-      for (const { file, className } of classesToTransform) {
-        if (id.endsWith(file)) {
-          // log(`Transforming ${className}`)
-          return transformObservable(code, className, resolvedPatchModulePath, id)
+      // dist/esm5/internal/Observable.js - ES5 function style
+      if (cleanId.includes("/rxjs/dist/esm5/") && cleanId.endsWith("/Observable.js")) {
+        log("MATCHED esm5 Observable.js")
+        log("patchPath:", resolvedPatchModulePath)
+        log("code length:", code.length)
+        log("code preview:", code.slice(0, 500))
+        const result = patchEs5(code, resolvedPatchModulePath)
+        log("patchEs5 result:", result ? "SUCCESS" : "FAILED (null)")
+        if (result) {
+          log("patched code preview:", result.code.slice(0, 800))
         }
+        return result
+      }
+
+      // dist/esm/internal/Observable.js - ES2015 class style
+      if (cleanId.includes("/rxjs/dist/esm/") && cleanId.endsWith("/Observable.js")) {
+        log("MATCHED esm Observable.js")
+        log("patchPath:", resolvedPatchModulePath)
+        const result = patchEsm(code, resolvedPatchModulePath)
+        log("patchEsm result:", result ? "SUCCESS" : "FAILED (null)")
+        if (result) {
+          log("patched code preview:", result.code.slice(0, 800))
+        }
+        return result
+      }
+
+      // src/internal/Observable.ts - TypeScript source
+      if (cleanId.includes("/rxjs/src/internal/Observable.ts")) {
+        log("MATCHED src Observable.ts")
+        log("patchPath:", resolvedPatchModulePath)
+        const result = patchTs(code, resolvedPatchModulePath)
+        log("patchTs result:", result ? "SUCCESS" : "FAILED (null)")
+        return result
       }
 
       return null
@@ -93,64 +122,44 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
   }
 }
 
-function transformObservable(code: string, className: string, patchModulePath: string, filename: string) {
-  const ms = new MagicString(code)
-  const result = parseSync(filename, code, { lang: "ts" })
+// Regex patterns for matching constructor bodies across all formats
+// Matches: function Observable(subscribe) { if (subscribe) { this._subscribe = subscribe; } }
+// or:      constructor(subscribe) { if (subscribe) { this._subscribe = subscribe; } }
+// or:      constructor(subscribe?: ...) { if (subscribe) { this._subscribe = subscribe; } }
 
-  // Import the patch module
-  ms.prepend(
-    `import { patchObservable as __patchObservable__, emit as __emit__, createId as __createId__, observableIdMap as __observableIdMap__ } from "${patchModulePath}";\n`,
-  )
+const ES5_PATTERN =
+  /(function\s+Observable\s*\(\s*subscribe\s*\)\s*\{)(\s*)(if\s*\(\s*subscribe\s*\)\s*\{\s*this\._subscribe\s*=\s*subscribe;\s*\})(\s*)(\})/
 
-  // Find the class and its constructor
-  for (const node of result.program.body) {
-    if (
-      node.type === "ExportNamedDeclaration" &&
-      node.declaration?.type === "ClassDeclaration" &&
-      node.declaration.id?.name === className
-    ) {
-      const classDecl = node.declaration
-      const classBody = classDecl.body
+const ESM_PATTERN =
+  /(constructor\s*\(\s*subscribe\s*\)\s*\{)(\s*)(if\s*\(\s*subscribe\s*\)\s*\{\s*this\._subscribe\s*=\s*subscribe;\s*\})(\s*)(\})/
 
-      // Find constructor method
-      for (const member of classBody.body) {
-        if (member.type === "MethodDefinition" && member.kind === "constructor") {
-          const constructorBody = member.value.body
-          if (constructorBody) {
-            // Inject at start of constructor: emit constructor-call, create id
-            const constructorStart = constructorBody.start + 1 // after {
-            ms.appendRight(
-              constructorStart,
-              `
-const __id__ = __createId__();
-`,
-            )
-            // Inject at end of constructor: register in map, emit constructor-call-return
-            const constructorEnd = constructorBody.end - 1 // before }
-            ms.appendLeft(
-              constructorEnd,
-              `
-__observableIdMap__.set(this, __id__);
-__emit__({ type: "constructor-call-return", id: __id__, observable: this });
-`,
-            )
-          }
-          break
-        }
-      }
+const TS_PATTERN =
+  /(constructor\s*\(\s*subscribe\?\s*:\s*\([^)]+\)\s*=>\s*TeardownLogic\s*\)\s*\{)(\s*)(if\s*\(\s*subscribe\s*\)\s*\{\s*this\._subscribe\s*=\s*subscribe;\s*\})(\s*)(\})/
 
-      // After class definition, call patchObservable
-      const classEnd = classDecl.end
-      ms.appendRight(classEnd, `\n__patchObservable__(${className});\n`)
+function patchWithRegex(code: string, patchPath: string, pattern: RegExp) {
+  const patched = code.replace(pattern, (_match, open, ws1, body, ws2, close) => {
+    return `${open}${CONSTRUCTOR_START}${ws1}${body}${CONSTRUCTOR_END}${ws2}${close}`
+  })
 
-      break
-    }
+  if (patched === code) {
+    console.warn("[rxjs-debugger] WARNING: Pattern did not match! Constructor not patched.")
+    return null
   }
 
-  return {
-    code: ms.toString(),
-    map: ms.generateMap({ hires: true }),
-  }
+  const result = IMPORT_PATCH(patchPath) + patched + PATCH_CALL
+  return { code: result, map: null }
+}
+
+function patchEs5(code: string, patchPath: string) {
+  return patchWithRegex(code, patchPath, ES5_PATTERN)
+}
+
+function patchEsm(code: string, patchPath: string) {
+  return patchWithRegex(code, patchPath, ESM_PATTERN)
+}
+
+function patchTs(code: string, patchPath: string) {
+  return patchWithRegex(code, patchPath, TS_PATTERN)
 }
 
 export default rxjsDebuggerPlugin

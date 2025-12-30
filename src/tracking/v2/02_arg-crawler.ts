@@ -29,6 +29,7 @@ export function findArgs(value: unknown, path = "$args", depth = 0, rootVal: any
       path,
       is_function: true,
       owner_id: "", // Set by caller
+      fn_source: value.toString(),
     })
     set(rootVal, path, (...args: any[]) => {
       const id = createId()
@@ -78,6 +79,19 @@ export function findArgs(value: unknown, path = "$args", depth = 0, rootVal: any
     for (const [key, val] of Object.entries(value)) {
       args.push(...findArgs(val, `${path}.${key}`, depth + 1, rootVal))
     }
+    return args
+  }
+
+  // Primitive (number, string, boolean, null, undefined)
+  if (value !== undefined) {
+    args.push({
+      id: createId(),
+      created_at: now(),
+      path,
+      is_function: false,
+      owner_id: "", // Set by caller
+      value,
+    })
   }
 
   return args

@@ -80,12 +80,14 @@ type Hmm = {
     parent_subscription_id?: string
     is_sync: boolean
   }
-  // Arg position (static observable refs + function positions)
+  // Arg position (static observable refs + function positions + primitives)
   arg: {
     path: string // "args.0.delay" or "args.0.0"
     observable_id?: string // if static obs ref
     owner_id: string // generic - check stores dynamically
     is_function: boolean
+    value?: unknown // for primitives (number, string, boolean, null)
+    fn_source?: string // function source code (dev mode only)
   }
   // Arg function execution (dynamic observable creation)
   arg_call: {
