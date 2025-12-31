@@ -1,6 +1,6 @@
 import { state$ } from "../00.types"
 import { decycle } from "../01_helpers"
-import { flattenSubTree, getSubTree, getTimeRange, type FlatSubRow } from "../06_queries"
+import { flattenSubTree, getArgCallForObs, getSubTree, getTimeRange, type FlatSubRow } from "../06_queries"
 
 type Props = {
   subId: string
@@ -35,6 +35,8 @@ export function MarbleDiagram({ subId, onBack }: Props) {
           </div>
 
           <TimeAxis timeRange={timeRange} />
+
+          <Legend />
         </div>
       </code>
     </pre>
@@ -54,15 +56,52 @@ function MarbleLane({
   const { sub, depth, sends } = row
   const obs = store.observable[sub.observable_id]
 
+  // Check if this observable came from an arg_call (dynamic observable)
+  const argCall = getArgCallForObs(store, sub.observable_id)
+  const arg = argCall ? store.arg[argCall.arg_id] : null
+  const isDynamic = !!argCall
+
+  // Find what operator this belongs to (for better naming)
+  const operator = Object.values(store.operator).find(op => op.target_observable_id === sub.observable_id)
+  const operatorFun = operator ? store.operator_fun[operator.operator_fun_id] : null
+
+  // Determine name: operator name > observable name > "obs"
+  const name = operatorFun?.name ?? obs?.name ?? "obs"
+
+  // Determine state: unsubscribed, completed, or active
+  const isUnsubscribed = !!sub.unsubscribed_at
+  const isCompleted = sends.some(s => s.type === "complete")
+  const hasError = sends.some(s => s.type === "error")
+
   const startPct = ((sub.created_at - timeRange.min) / width) * 100
   const endTime = sub.unsubscribed_at ?? sub.created_at_end ?? timeRange.max
   const widthPct = ((endTime - sub.created_at) / width) * 100
 
+  // Line color based on state
+  const lineColor = hasError ? "#ff6b6b" : isUnsubscribed ? "#ffa94d" : isCompleted ? "#868e96" : "#339af0"
+  const labelOpacity = isCompleted || isUnsubscribed ? 0.5 : 1
+
+  // Dynamic observable indicator
+  const dynamicIndicator = isDynamic ? (
+    <span style={{ color: "#be4bdb", fontSize: 10, marginLeft: 4 }} title={`from ${arg?.path ?? "arg"}`}>
+      $
+    </span>
+  ) : null
+
   return (
     <div style={{ display: "flex", alignItems: "center", height: 24 }}>
       {/* Tree indentation + label */}
-      <div style={{ paddingLeft: depth * 16, width: 150, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis" }}>
-        {"└─".repeat(depth ? 1 : 0)}#{sub.id} ({obs?.name ?? "obs"})
+      <div
+        style={{
+          paddingLeft: depth * 16,
+          width: 180,
+          flexShrink: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          opacity: labelOpacity,
+        }}
+      >
+        {"└─".repeat(depth ? 1 : 0)}#{sub.id} ({name}){dynamicIndicator}
       </div>
 
       {/* Marble timeline */}
@@ -74,10 +113,28 @@ function MarbleLane({
             left: `${startPct}%`,
             width: `${widthPct}%`,
             height: 2,
-            background: "#666",
+            background: lineColor,
             top: 11,
+            opacity: isCompleted || isUnsubscribed ? 0.5 : 1,
           }}
         />
+
+        {/* Unsubscribe marker (different from complete) */}
+        {isUnsubscribed && (
+          <div
+            style={{
+              position: "absolute",
+              left: `${((sub.unsubscribed_at! - timeRange.min) / width) * 100}%`,
+              transform: "translateX(-50%)",
+              top: 4,
+              color: "#ffa94d",
+              fontWeight: "bold",
+            }}
+            title={`Unsubscribed at ${sub.unsubscribed_at}ms`}
+          >
+            ⊗
+          </div>
+        )}
 
         {/* Marble events */}
         {sends.map(send => {
@@ -96,7 +153,7 @@ function Marble({
   send: { id: string; type: string; value?: any; created_at: number }
   leftPct: number
 }) {
-  const color = send.type === "error" ? "red" : send.type === "complete" ? "blue" : "green"
+  const color = send.type === "error" ? "#ff6b6b" : send.type === "complete" ? "#868e96" : "#51cf66"
   const symbol = send.type === "complete" ? "|" : send.type === "error" ? "✗" : "●"
   const title = send.type === "next" ? JSON.stringify(decycle(send.value)) : send.type
 
@@ -112,6 +169,28 @@ function Marble({
       title={title}
     >
       <span style={{ color }}>{symbol}</span>
+    </div>
+  )
+}
+
+function Legend() {
+  return (
+    <div style={{ marginTop: 16, display: "flex", gap: 16, fontSize: 10, color: "#666" }}>
+      <span>
+        <span style={{ color: "#51cf66" }}>●</span> next
+      </span>
+      <span>
+        <span style={{ color: "#868e96" }}>|</span> complete
+      </span>
+      <span>
+        <span style={{ color: "#ff6b6b" }}>✗</span> error
+      </span>
+      <span>
+        <span style={{ color: "#ffa94d" }}>⊗</span> unsubscribed
+      </span>
+      <span>
+        <span style={{ color: "#be4bdb" }}>$</span> dynamic observable
+      </span>
     </div>
   )
 }

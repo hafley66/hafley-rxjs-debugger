@@ -635,7 +635,7 @@ describe("DebuggerGrid", () => {
     expect(container.textContent).toContain("← Back to Overview")
     expect(container.textContent).toContain("Sub #15 Tree")
     expect(container.textContent).toMatchInlineSnapshot(
-      `"← Back to OverviewSub #15 Tree#15 (obs)●●●●|└─#16 (obs)●●●●|└─#17 (from)●●|└─#30 (of)●|└─#32 (from)●●|1600ms2400ms3200ms4000ms4800ms"`,
+      `"← Back to OverviewSub #15 Tree#15 (tap)●●●●|└─#16 (repeat)●●●●|└─#17 (from)⊗●●|└─#30 (of)$●|└─#32 (from)●●|1600ms2400ms3200ms4000ms4800ms● next| complete✗ error⊗ unsubscribed$ dynamic observable"`,
     )
   })
 })

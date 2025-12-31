@@ -2,6 +2,8 @@ import { createRequire } from "module"
 import path from "path"
 import type { Plugin, ResolvedConfig } from "rolldown-vite"
 
+const require = createRequire(import.meta.url)
+
 type VitestConfig = ResolvedConfig & {
   test?: {
     browser?: {
@@ -9,8 +11,6 @@ type VitestConfig = ResolvedConfig & {
     }
   }
 }
-
-const require = createRequire(import.meta.url)
 
 export interface RxjsDebuggerPluginOptions {
   debug?: boolean
@@ -51,24 +51,24 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
     },
 
     resolveId(source) {
-      if (config.command === "serve" && !config.isProduction) {
-        const isBrowser = config.test?.browser?.enabled
-        if (!isBrowser && (source === "rxjs" || source.startsWith("rxjs/"))) {
-          const rxjsPath = path.dirname(require.resolve("rxjs/package.json"))
-          log("resolveId redirecting:", source)
+      // For vitest (non-browser), redirect rxjs imports to esm5 dist files
+      // so they go through our transform hook
+      const isBrowser = config.test?.browser?.enabled
+      if (!isBrowser && (source === "rxjs" || source.startsWith("rxjs/"))) {
+        const rxjsPath = path.dirname(require.resolve("rxjs/package.json"))
+        log("resolveId redirecting:", source)
 
-          if (source === "rxjs") {
-            return path.join(rxjsPath, "src/index.ts")
-          }
+        if (source === "rxjs") {
+          return path.join(rxjsPath, "dist/esm5/index.js")
+        }
 
-          const subpath = source.slice("rxjs/".length)
-          if (subpath === "operators") {
-            return path.join(rxjsPath, "src/operators/index.ts")
-          } else if (subpath.startsWith("internal/")) {
-            return path.join(rxjsPath, `src/${subpath}.ts`)
-          } else {
-            return path.join(rxjsPath, "src", subpath, "index.ts")
-          }
+        const subpath = source.slice("rxjs/".length)
+        if (subpath === "operators") {
+          return path.join(rxjsPath, "dist/esm5/operators/index.js")
+        } else if (subpath.startsWith("internal/")) {
+          return path.join(rxjsPath, `dist/esm5/${subpath}.js`)
+        } else {
+          return path.join(rxjsPath, "dist/esm5", subpath, "index.js")
         }
       }
       return null
