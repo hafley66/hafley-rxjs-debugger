@@ -1,19 +1,19 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
-import { BehaviorSubject, Subject, timer, of, throwError, EMPTY } from "rxjs"
+import { BehaviorSubject, EMPTY, of, Subject, throwError, timer } from "rxjs"
 import {
-  switchMap,
-  map,
-  tap,
-  retry,
-  repeat,
-  debounceTime,
-  distinctUntilChanged,
   catchError,
+  debounceTime,
   delay,
-  take,
-  share,
+  distinctUntilChanged,
   finalize,
+  map,
+  repeat,
+  retry,
+  share,
+  switchMap,
+  take,
+  tap,
 } from "rxjs/operators"
 import { state$, track } from "./tracking/v2/00.types"
 import "./tracking/v2/03_scan-accumulator"
@@ -133,7 +133,6 @@ function App() {
           <button
             type="button"
             onClick={() => {
-              state$.reset()
               state$.set({ isEnabled: true })
               const sub = pollUsers$.pipe(take(3)).subscribe()
               setTimeout(() => sub.unsubscribe(), 10000)
@@ -154,7 +153,6 @@ function App() {
           <button
             type="button"
             onClick={() => {
-              state$.reset()
               state$.set({ isEnabled: true })
               searchResults$.pipe(take(5)).subscribe()
             }}
@@ -168,8 +166,6 @@ function App() {
           <button
             type="button"
             onClick={() => {
-              state$.reset()
-              state$.set({ isEnabled: true })
               createUser(`User${Date.now()}`, `user${Date.now()}@test.com`).subscribe()
             }}
           >
@@ -183,8 +179,6 @@ function App() {
             type="button"
             onClick={() => {
               if (mockUsers.length === 0) return
-              state$.reset()
-              state$.set({ isEnabled: true })
               deleteUser(mockUsers[0]!.id).subscribe()
             }}
           >
@@ -198,7 +192,7 @@ function App() {
             type="button"
             onClick={() => {
               state$.reset()
-              state$.set({ isEnabled: false })
+              state$.set({ isEnabled: true })
             }}
           >
             Clear & Disable
