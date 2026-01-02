@@ -1,1 +1,1 @@
-2026-01-02.7.tracked-subject-bisync.md
+2026-01-02.8.bisync-behavior-subject.md
