@@ -3,7 +3,7 @@ import { rxjsDebuggerPlugin } from "./src/vite-plugin/v2"
 
 export default defineConfig({
   plugins: [
-    rxjsDebuggerPlugin({ debug: true }),
+    rxjsDebuggerPlugin({ debug: false }),
   ],
   optimizeDeps: {
     exclude: ["rxjs"],

@@ -1,8 +1,8 @@
 import { cleanup, render } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { page } from "vitest/browser"
-import { state$ } from "../00.types"
-import { resetIdCounter, setNow, track } from "../01_helpers"
+import { isEnabled$, state$ } from "../00.types"
+import { resetIdCounter, setNow } from "../01_helpers"
 
 import "../03_scan-accumulator"
 import { proxy } from "../04.operators"
@@ -14,15 +14,15 @@ describe("DebuggerGrid", () => {
     resetIdCounter()
     setNow(0)
     state$.reset()
-    state$.set({ isEnabled: true })
-    track(true)
+    isEnabled$.next(true)
+    state$.value.stack.hmr_track.push({ id: "test", created_at: 0 } as any)
   })
 
   afterEach(() => {
-    track(false)
+    state$.value.stack.hmr_track.pop()
     resetIdCounter()
     setNow(null)
-    state$.set({ isEnabled: false })
+    isEnabled$.next(false)
     cleanup()
   })
 
@@ -44,31 +44,22 @@ describe("DebuggerGrid", () => {
             "path": "$args.0.0",
             "value": 5,
           },
-          "17": {
-            "created_at": 0,
-            "id": "17",
-            "is_function": false,
-            "observable_id": "16",
-            "owner_id": "16",
-            "path": "$args.0.0",
-            "value": "0/5",
-          },
           "18": {
             "created_at": 0,
             "id": "18",
             "is_function": false,
-            "observable_id": "16",
-            "owner_id": "16",
-            "path": "$args.0",
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0.0",
             "value": "0/5",
           },
           "19": {
             "created_at": 0,
             "id": "19",
             "is_function": false,
-            "observable_id": "16",
-            "owner_id": "16",
-            "path": "$args.0",
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0.0",
             "value": "0/5",
           },
           "2": {
@@ -77,8 +68,34 @@ describe("DebuggerGrid", () => {
             "is_function": false,
             "observable_id": "0",
             "owner_id": "0",
-            "path": "$args.0",
+            "path": "$args.0.0",
             "value": 5,
+          },
+          "20": {
+            "created_at": 0,
+            "id": "20",
+            "is_function": false,
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0",
+            "value": "0/5",
+          },
+          "21": {
+            "created_at": 0,
+            "id": "21",
+            "is_function": false,
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0",
+            "value": "0/5",
+          },
+          "22": {
+            "created_at": 0,
+            "id": "22",
+            "is_function": false,
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0",
           },
           "3": {
             "created_at": 0,
@@ -89,15 +106,24 @@ describe("DebuggerGrid", () => {
             "path": "$args.0",
             "value": 5,
           },
-          "6": {
+          "4": {
+            "created_at": 0,
+            "id": "4",
+            "is_function": false,
+            "observable_id": "0",
+            "owner_id": "0",
+            "path": "$args.0",
+            "value": 5,
+          },
+          "7": {
             "created_at": 0,
             "fn_source": "(val, index) => proxy.of(index + "/" + val)",
-            "id": "6",
+            "id": "7",
             "is_function": true,
-            "owner_id": "5",
+            "owner_id": "6",
             "path": "$args.0",
           },
-          "8": {
+          "9": {
             "created_at": 0,
             "fn_source": "(...args2) => {
             const id = createId();
@@ -115,27 +141,15 @@ describe("DebuggerGrid", () => {
             });
             return out;
           }",
-            "id": "8",
+            "id": "9",
             "is_function": true,
-            "owner_id": "7",
+            "owner_id": "8",
             "path": "$args.0",
           },
         },
         "arg_call": {
-          "14": {
-            "arg_id": "8",
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "14",
-            "input_values": [
-              5,
-              0,
-            ],
-            "observable_id": "16",
-            "subscription_id": "11",
-          },
           "15": {
-            "arg_id": "6",
+            "arg_id": "9",
             "created_at": 0,
             "created_at_end": 0,
             "id": "15",
@@ -143,8 +157,20 @@ describe("DebuggerGrid", () => {
               5,
               0,
             ],
-            "observable_id": "16",
-            "subscription_id": "11",
+            "observable_id": "17",
+            "subscription_id": "12",
+          },
+          "16": {
+            "arg_id": "7",
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "16",
+            "input_values": [
+              5,
+              0,
+            ],
+            "observable_id": "17",
+            "subscription_id": "12",
           },
         },
         "observable": {
@@ -154,125 +180,125 @@ describe("DebuggerGrid", () => {
             "id": "0",
             "name": "of",
           },
-          "16": {
+          "17": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "16",
-            "name": "of",
+            "id": "17",
+            "name": "innerFrom",
           },
         },
         "operator": {
-          "9": {
+          "10": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "9",
+            "id": "10",
             "index": 0,
-            "operator_fun_id": "5",
-            "pipe_id": "4",
+            "operator_fun_id": "6",
+            "pipe_id": "5",
             "source_observable_id": "0",
-            "target_observable_id": "10",
+            "target_observable_id": "11",
           },
         },
         "operator_fun": {
-          "5": {
+          "6": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "5",
+            "id": "6",
             "name": "switchMap",
           },
-          "7": {
+          "8": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "7",
+            "id": "8",
             "name": "switchMap",
           },
         },
         "pipe": {
-          "4": {
+          "5": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "4",
-            "observable_id": "10",
+            "id": "5",
+            "observable_id": "11",
             "parent_observable_id": "0",
           },
         },
         "send": {
-          "13": {
+          "14": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "13",
+            "id": "14",
             "observable_id": "0",
-            "subscription_id": "12",
+            "subscription_id": "13",
             "type": "next",
             "value": 5,
-          },
-          "21": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "21",
-            "observable_id": "16",
-            "subscription_id": "20",
-            "type": "next",
-            "value": "0/5",
-          },
-          "22": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "22",
-            "observable_id": "10",
-            "subscription_id": "11",
-            "type": "next",
-            "value": "0/5",
-          },
-          "23": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "23",
-            "observable_id": "16",
-            "subscription_id": "20",
-            "type": "complete",
           },
           "24": {
             "created_at": 0,
             "created_at_end": 0,
             "id": "24",
-            "observable_id": "0",
-            "subscription_id": "12",
-            "type": "complete",
+            "observable_id": "17",
+            "subscription_id": "23",
+            "type": "next",
+            "value": "0/5",
           },
           "25": {
             "created_at": 0,
             "created_at_end": 0,
             "id": "25",
-            "observable_id": "10",
-            "subscription_id": "11",
+            "observable_id": "11",
+            "subscription_id": "12",
+            "type": "next",
+            "value": "0/5",
+          },
+          "26": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "26",
+            "observable_id": "17",
+            "subscription_id": "23",
+            "type": "complete",
+          },
+          "27": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "27",
+            "observable_id": "0",
+            "subscription_id": "13",
+            "type": "complete",
+          },
+          "28": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "28",
+            "observable_id": "11",
+            "subscription_id": "12",
             "type": "complete",
           },
         },
         "subscription": {
-          "11": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "11",
-            "is_sync": false,
-            "observable_id": "10",
-            "parent_subscription_id": undefined,
-          },
           "12": {
             "created_at": 0,
             "created_at_end": 0,
             "id": "12",
             "is_sync": false,
-            "observable_id": "0",
-            "parent_subscription_id": "11",
+            "observable_id": "11",
+            "parent_subscription_id": undefined,
           },
-          "20": {
+          "13": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "20",
+            "id": "13",
             "is_sync": false,
-            "observable_id": "16",
-            "parent_subscription_id": "11",
+            "observable_id": "0",
+            "parent_subscription_id": "12",
+          },
+          "23": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "23",
+            "is_sync": false,
+            "observable_id": "17",
+            "parent_subscription_id": "12",
           },
         },
       }
@@ -297,7 +323,7 @@ describe("DebuggerGrid", () => {
       path: "./__snapshots__/v2-grid-multi-root.png",
     })
     expect(container.textContent).toMatchInlineSnapshot(
-      `"StructureSub #22of #0●  .pipe(    map() → #10●2  ) → #10of #11  .pipe(    filter() → #21●  ) → #21Sendsnext: 2complete"`,
+      `"StructureSub #24of #0●  .pipe(    map() → #11●2  ) → #11of #12  .pipe(    filter() → #23●  ) → #23Sendsnext: 2complete"`,
     )
   })
   it("renders repeat with sends", async () => {
@@ -332,6 +358,14 @@ describe("DebuggerGrid", () => {
           },
           "10": {
             "created_at": 1000,
+            "id": "10",
+            "is_function": false,
+            "owner_id": "8",
+            "path": "$args.0.count",
+            "value": 2,
+          },
+          "12": {
+            "created_at": 1000,
             "fn_source": "(...args2) => {
             const id = createId();
             _observableEvents$.next({
@@ -348,88 +382,42 @@ describe("DebuggerGrid", () => {
             });
             return out;
           }",
-            "id": "10",
+            "id": "12",
             "is_function": true,
-            "owner_id": "9",
+            "owner_id": "11",
             "path": "$args.0.delay",
-          },
-          "11": {
-            "created_at": 1000,
-            "id": "11",
-            "is_function": false,
-            "owner_id": "9",
-            "path": "$args.0.count",
-            "value": 2,
           },
           "13": {
             "created_at": 1000,
-            "fn_source": "() => setNow(++index * 1e3)",
             "id": "13",
-            "is_function": true,
-            "owner_id": "12",
-            "path": "$args.0.next",
-          },
-          "14": {
-            "created_at": 1000,
-            "fn_source": "() => setNow(++index * 1e3)",
-            "id": "14",
-            "is_function": true,
-            "owner_id": "12",
-            "path": "$args.0.complete",
+            "is_function": false,
+            "owner_id": "11",
+            "path": "$args.0.count",
+            "value": 2,
           },
           "15": {
             "created_at": 1000,
             "fn_source": "() => setNow(++index * 1e3)",
             "id": "15",
             "is_function": true,
-            "owner_id": "12",
-            "path": "$args.0.error",
+            "owner_id": "14",
+            "path": "$args.0.next",
+          },
+          "16": {
+            "created_at": 1000,
+            "fn_source": "() => setNow(++index * 1e3)",
+            "id": "16",
+            "is_function": true,
+            "owner_id": "14",
+            "path": "$args.0.complete",
           },
           "17": {
             "created_at": 1000,
-            "fn_source": "(...args2) => {
-            const id = createId();
-            _observableEvents$.next({
-              type: "arg-call",
-              id,
-              arg_id,
-              args: args2
-            });
-            const out = value(...args2);
-            _observableEvents$.next({
-              type: "arg-call-return",
-              id,
-              observable_id: observableIdMap.get(out) ?? "UNKNOWN"
-            });
-            return out;
-          }",
+            "fn_source": "() => setNow(++index * 1e3)",
             "id": "17",
             "is_function": true,
-            "owner_id": "16",
-            "path": "$args.0.next",
-          },
-          "18": {
-            "created_at": 1000,
-            "fn_source": "(...args2) => {
-            const id = createId();
-            _observableEvents$.next({
-              type: "arg-call",
-              id,
-              arg_id,
-              args: args2
-            });
-            const out = value(...args2);
-            _observableEvents$.next({
-              type: "arg-call-return",
-              id,
-              observable_id: observableIdMap.get(out) ?? "UNKNOWN"
-            });
-            return out;
-          }",
-            "id": "18",
-            "is_function": true,
-            "owner_id": "16",
-            "path": "$args.0.complete",
+            "owner_id": "14",
+            "path": "$args.0.error",
           },
           "19": {
             "created_at": 1000,
@@ -451,8 +439,8 @@ describe("DebuggerGrid", () => {
           }",
             "id": "19",
             "is_function": true,
-            "owner_id": "16",
-            "path": "$args.0.error",
+            "owner_id": "18",
+            "path": "$args.0.next",
           },
           "2": {
             "created_at": 1000,
@@ -462,6 +450,52 @@ describe("DebuggerGrid", () => {
             "owner_id": "0",
             "path": "$args.0.1",
             "value": 15,
+          },
+          "20": {
+            "created_at": 1000,
+            "fn_source": "(...args2) => {
+            const id = createId();
+            _observableEvents$.next({
+              type: "arg-call",
+              id,
+              arg_id,
+              args: args2
+            });
+            const out = value(...args2);
+            _observableEvents$.next({
+              type: "arg-call-return",
+              id,
+              observable_id: observableIdMap.get(out) ?? "UNKNOWN"
+            });
+            return out;
+          }",
+            "id": "20",
+            "is_function": true,
+            "owner_id": "18",
+            "path": "$args.0.complete",
+          },
+          "21": {
+            "created_at": 1000,
+            "fn_source": "(...args2) => {
+            const id = createId();
+            _observableEvents$.next({
+              type: "arg-call",
+              id,
+              arg_id,
+              args: args2
+            });
+            const out = value(...args2);
+            _observableEvents$.next({
+              type: "arg-call-return",
+              id,
+              observable_id: observableIdMap.get(out) ?? "UNKNOWN"
+            });
+            return out;
+          }",
+            "id": "21",
+            "is_function": true,
+            "owner_id": "18",
+            "path": "$args.0.error",
           },
           "3": {
             "created_at": 1000,
@@ -481,72 +515,99 @@ describe("DebuggerGrid", () => {
             "path": "$args.0.1",
             "value": 15,
           },
-          "41": {
-            "created_at": 2000,
-            "id": "41",
-            "is_function": false,
-            "observable_id": "40",
-            "owner_id": "40",
-            "path": "$args.0.0",
-            "value": true,
-          },
-          "42": {
-            "created_at": 2000,
-            "id": "42",
-            "is_function": false,
-            "observable_id": "40",
-            "owner_id": "40",
-            "path": "$args.0",
-            "value": true,
-          },
           "43": {
             "created_at": 2000,
             "id": "43",
             "is_function": false,
-            "observable_id": "40",
-            "owner_id": "40",
+            "observable_id": "42",
+            "owner_id": "42",
+            "path": "$args.0.0",
+            "value": true,
+          },
+          "44": {
+            "created_at": 2000,
+            "id": "44",
+            "is_function": false,
+            "observable_id": "42",
+            "owner_id": "42",
+            "path": "$args.0.0",
+            "value": true,
+          },
+          "45": {
+            "created_at": 2000,
+            "id": "45",
+            "is_function": false,
+            "observable_id": "42",
+            "owner_id": "42",
             "path": "$args.0",
             "value": true,
           },
-          "7": {
+          "46": {
+            "created_at": 2000,
+            "id": "46",
+            "is_function": false,
+            "observable_id": "42",
+            "owner_id": "42",
+            "path": "$args.0",
+            "value": true,
+          },
+          "47": {
+            "created_at": 2000,
+            "id": "47",
+            "is_function": false,
+            "observable_id": "42",
+            "owner_id": "42",
+            "path": "$args.0",
+          },
+          "5": {
+            "created_at": 1000,
+            "id": "5",
+            "is_function": false,
+            "observable_id": "0",
+            "owner_id": "0",
+            "path": "$args.0.0",
+            "value": 12,
+          },
+          "6": {
+            "created_at": 1000,
+            "id": "6",
+            "is_function": false,
+            "observable_id": "0",
+            "owner_id": "0",
+            "path": "$args.0.1",
+            "value": 15,
+          },
+          "9": {
             "created_at": 1000,
             "fn_source": "() => proxy.of(true)",
-            "id": "7",
+            "id": "9",
             "is_function": true,
-            "owner_id": "6",
+            "owner_id": "8",
             "path": "$args.0.delay",
-          },
-          "8": {
-            "created_at": 1000,
-            "id": "8",
-            "is_function": false,
-            "owner_id": "6",
-            "path": "$args.0.count",
-            "value": 2,
           },
         },
         "arg_call": {
-          "38": {
-            "arg_id": "10",
+          "40": {
+            "arg_id": "12",
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "38",
+            "id": "40",
             "input_values": [
               1,
             ],
-            "observable_id": "40",
-            "subscription_id": "24",
+            "observable_id": "42",
+            "subscription_id": "26",
           },
-          "39": {
-            "arg_id": "7",
+          "41": {
+            "arg_id": "9",
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "39",
+            "id": "41",
             "input_values": [
               1,
             ],
-            "observable_id": "40",
-            "subscription_id": "24",
+            "observable_id": "42",
+            "subscription_id": "26",
           },
         },
         "observable": {
@@ -556,268 +617,268 @@ describe("DebuggerGrid", () => {
             "id": "0",
             "name": "from",
           },
-          "40": {
+          "42": {
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "40",
-            "name": "of",
+            "id": "42",
+            "name": "innerFrom",
           },
         },
         "operator": {
-          "20": {
-            "created_at": 1000,
-            "created_at_end": 1000,
-            "id": "20",
-            "index": 0,
-            "operator_fun_id": "6",
-            "pipe_id": "5",
-            "source_observable_id": "0",
-            "target_observable_id": "21",
-          },
           "22": {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "22",
-            "index": 1,
-            "operator_fun_id": "12",
-            "pipe_id": "5",
-            "source_observable_id": "21",
+            "index": 0,
+            "operator_fun_id": "8",
+            "pipe_id": "7",
+            "source_observable_id": "0",
             "target_observable_id": "23",
+          },
+          "24": {
+            "created_at": 1000,
+            "created_at_end": 1000,
+            "id": "24",
+            "index": 1,
+            "operator_fun_id": "14",
+            "pipe_id": "7",
+            "source_observable_id": "23",
+            "target_observable_id": "25",
           },
         },
         "operator_fun": {
-          "12": {
+          "11": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "12",
-            "name": "tap",
-          },
-          "16": {
-            "created_at": 1000,
-            "created_at_end": 1000,
-            "id": "16",
-            "name": "tap",
-          },
-          "6": {
-            "created_at": 1000,
-            "created_at_end": 1000,
-            "id": "6",
+            "id": "11",
             "name": "repeat",
           },
-          "9": {
+          "14": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "9",
+            "id": "14",
+            "name": "tap",
+          },
+          "18": {
+            "created_at": 1000,
+            "created_at_end": 1000,
+            "id": "18",
+            "name": "tap",
+          },
+          "8": {
+            "created_at": 1000,
+            "created_at_end": 1000,
+            "id": "8",
             "name": "repeat",
           },
         },
         "pipe": {
-          "5": {
+          "7": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "5",
-            "observable_id": "23",
+            "id": "7",
+            "observable_id": "25",
             "parent_observable_id": "0",
           },
         },
         "send": {
-          "27": {
+          "29": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "27",
+            "id": "29",
             "observable_id": "0",
-            "subscription_id": "26",
+            "subscription_id": "28",
             "type": "next",
             "value": 12,
           },
-          "28": {
+          "30": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "28",
-            "observable_id": "21",
-            "subscription_id": "25",
-            "type": "next",
-            "value": 12,
-          },
-          "31": {
-            "created_at": 1000,
-            "created_at_end": 1000,
-            "id": "31",
+            "id": "30",
             "observable_id": "23",
-            "subscription_id": "24",
+            "subscription_id": "27",
             "type": "next",
             "value": 12,
-          },
-          "32": {
-            "created_at": 1000,
-            "created_at_end": 2000,
-            "id": "32",
-            "observable_id": "0",
-            "subscription_id": "26",
-            "type": "next",
-            "value": 15,
           },
           "33": {
             "created_at": 1000,
-            "created_at_end": 2000,
+            "created_at_end": 1000,
             "id": "33",
-            "observable_id": "21",
-            "subscription_id": "25",
-            "type": "next",
-            "value": 15,
-          },
-          "36": {
-            "created_at": 2000,
-            "created_at_end": 2000,
-            "id": "36",
-            "observable_id": "23",
-            "subscription_id": "24",
-            "type": "next",
-            "value": 15,
-          },
-          "37": {
-            "created_at": 2000,
-            "created_at_end": 2000,
-            "id": "37",
-            "observable_id": "0",
+            "observable_id": "25",
             "subscription_id": "26",
+            "type": "next",
+            "value": 12,
+          },
+          "34": {
+            "created_at": 1000,
+            "created_at_end": 2000,
+            "id": "34",
+            "observable_id": "0",
+            "subscription_id": "28",
+            "type": "next",
+            "value": 15,
+          },
+          "35": {
+            "created_at": 1000,
+            "created_at_end": 2000,
+            "id": "35",
+            "observable_id": "23",
+            "subscription_id": "27",
+            "type": "next",
+            "value": 15,
+          },
+          "38": {
+            "created_at": 2000,
+            "created_at_end": 2000,
+            "id": "38",
+            "observable_id": "25",
+            "subscription_id": "26",
+            "type": "next",
+            "value": 15,
+          },
+          "39": {
+            "created_at": 2000,
+            "created_at_end": 2000,
+            "id": "39",
+            "observable_id": "0",
+            "subscription_id": "28",
             "type": "complete",
           },
-          "45": {
+          "49": {
             "created_at": 2000,
             "created_at_end": 5000,
-            "id": "45",
-            "observable_id": "40",
-            "subscription_id": "44",
+            "id": "49",
+            "observable_id": "42",
+            "subscription_id": "48",
             "type": "next",
             "value": true,
           },
-          "47": {
-            "created_at": 2000,
-            "created_at_end": 3000,
-            "id": "47",
-            "observable_id": "0",
-            "subscription_id": "46",
-            "type": "next",
-            "value": 12,
-          },
-          "48": {
-            "created_at": 2000,
-            "created_at_end": 3000,
-            "id": "48",
-            "observable_id": "21",
-            "subscription_id": "25",
-            "type": "next",
-            "value": 12,
-          },
           "51": {
-            "created_at": 3000,
+            "created_at": 2000,
             "created_at_end": 3000,
             "id": "51",
-            "observable_id": "23",
-            "subscription_id": "24",
+            "observable_id": "0",
+            "subscription_id": "50",
             "type": "next",
             "value": 12,
           },
           "52": {
-            "created_at": 3000,
-            "created_at_end": 4000,
+            "created_at": 2000,
+            "created_at_end": 3000,
             "id": "52",
-            "observable_id": "0",
-            "subscription_id": "46",
+            "observable_id": "23",
+            "subscription_id": "27",
             "type": "next",
-            "value": 15,
+            "value": 12,
           },
-          "53": {
+          "55": {
             "created_at": 3000,
-            "created_at_end": 4000,
-            "id": "53",
-            "observable_id": "21",
-            "subscription_id": "25",
+            "created_at_end": 3000,
+            "id": "55",
+            "observable_id": "25",
+            "subscription_id": "26",
             "type": "next",
-            "value": 15,
+            "value": 12,
           },
           "56": {
-            "created_at": 4000,
+            "created_at": 3000,
             "created_at_end": 4000,
             "id": "56",
-            "observable_id": "23",
-            "subscription_id": "24",
+            "observable_id": "0",
+            "subscription_id": "50",
             "type": "next",
             "value": 15,
           },
           "57": {
-            "created_at": 4000,
-            "created_at_end": 5000,
+            "created_at": 3000,
+            "created_at_end": 4000,
             "id": "57",
-            "observable_id": "0",
-            "subscription_id": "46",
-            "type": "complete",
+            "observable_id": "23",
+            "subscription_id": "27",
+            "type": "next",
+            "value": 15,
           },
-          "58": {
+          "60": {
             "created_at": 4000,
-            "created_at_end": 5000,
-            "id": "58",
-            "observable_id": "21",
-            "subscription_id": "25",
-            "type": "complete",
+            "created_at_end": 4000,
+            "id": "60",
+            "observable_id": "25",
+            "subscription_id": "26",
+            "type": "next",
+            "value": 15,
           },
           "61": {
-            "created_at": 5000,
+            "created_at": 4000,
             "created_at_end": 5000,
             "id": "61",
-            "observable_id": "23",
-            "subscription_id": "24",
+            "observable_id": "0",
+            "subscription_id": "50",
             "type": "complete",
           },
           "62": {
-            "created_at": 5000,
+            "created_at": 4000,
             "created_at_end": 5000,
             "id": "62",
-            "observable_id": "40",
-            "subscription_id": "44",
+            "observable_id": "23",
+            "subscription_id": "27",
+            "type": "complete",
+          },
+          "65": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "65",
+            "observable_id": "25",
+            "subscription_id": "26",
+            "type": "complete",
+          },
+          "66": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "66",
+            "observable_id": "42",
+            "subscription_id": "48",
             "type": "complete",
           },
         },
         "subscription": {
-          "24": {
-            "created_at": 1000,
-            "created_at_end": 5000,
-            "id": "24",
-            "is_sync": false,
-            "observable_id": "23",
-            "parent_subscription_id": undefined,
-          },
-          "25": {
-            "created_at": 1000,
-            "id": "25",
-            "is_sync": false,
-            "observable_id": "21",
-            "parent_subscription_id": "24",
-          },
           "26": {
             "created_at": 1000,
+            "created_at_end": 5000,
             "id": "26",
             "is_sync": false,
+            "observable_id": "25",
+            "parent_subscription_id": undefined,
+          },
+          "27": {
+            "created_at": 1000,
+            "id": "27",
+            "is_sync": false,
+            "observable_id": "23",
+            "parent_subscription_id": "26",
+          },
+          "28": {
+            "created_at": 1000,
+            "id": "28",
+            "is_sync": false,
             "observable_id": "0",
-            "parent_subscription_id": "25",
+            "parent_subscription_id": "27",
             "unsubscribed_at": 2000,
             "unsubscribed_at_end": 2000,
           },
-          "44": {
+          "48": {
             "created_at": 2000,
-            "id": "44",
+            "id": "48",
             "is_sync": false,
-            "observable_id": "40",
-            "parent_subscription_id": "24",
+            "observable_id": "42",
+            "parent_subscription_id": "26",
           },
-          "46": {
+          "50": {
             "created_at": 2000,
             "created_at_end": 5000,
-            "id": "46",
+            "id": "50",
             "is_sync": false,
             "observable_id": "0",
-            "parent_subscription_id": "44",
+            "parent_subscription_id": "48",
           },
         },
       }
@@ -828,7 +889,7 @@ describe("DebuggerGrid", () => {
       path: "./__snapshots__/v2-grid-repeat.png",
     })
     expect(container.textContent).toMatchInlineSnapshot(
-      `"StructureSub #24from #0  .pipe(    repeat() → #21●    tap() → #23●5  ) → #23Sendsnext: 12next: 15next: 12next: 15complete"`,
+      `"StructureSub #26from #0  .pipe(    repeat() → #23●    tap() → #25●5  ) → #25Sendsnext: 12next: 15next: 12next: 15complete"`,
     )
   })
 
@@ -868,7 +929,7 @@ describe("DebuggerGrid", () => {
     expect(container.textContent).toContain("← Back to Overview")
     expect(container.textContent).toMatch(/Sub #\d+ Tree/)
     expect(container.textContent).toMatchInlineSnapshot(
-      `"← Back to OverviewSub #24 Tree#24 (tap)●●●●|└─#25 (repeat)●●●●|└─#26 (from)⊗●●|└─#44 (of)$●|└─#46 (from)●●|1600ms2400ms3200ms4000ms4800ms● next| complete✗ error⊗ unsubscribed$ dynamic observable"`,
+      `"← Back to OverviewSub #26 Tree#26 (tap)●●●●|└─#27 (repeat)●●●●|└─#28 (from)⊗●●|└─#48 (innerFrom)$●|└─#50 (from)●●|1600ms2400ms3200ms4000ms4800ms● next| complete✗ error⊗ unsubscribed$ dynamic observable"`,
     )
   })
 })

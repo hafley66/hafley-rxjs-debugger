@@ -145,8 +145,8 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
       const isEsmObservable = cleanId.includes("/rxjs/dist/esm/internal/observable/") && cleanId.endsWith(".js")
       if (isEsm5Observable || isEsmObservable) {
         const fileName = path.basename(cleanId, ".js")
-        // Skip index files, classes, and internal helpers
-        if (fileName === "index" || fileName === "ConnectableObservable" || fileName.startsWith("inner")) {
+        // Skip index files and classes (not creation functions)
+        if (fileName === "index" || fileName === "ConnectableObservable") {
           return null
         }
         log("MATCHED observable:", fileName, isEsm5Observable ? "(esm5)" : "(esm)")
@@ -174,7 +174,8 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
       // src/internal/observable/*.ts - TypeScript source creation operators
       if (cleanId.includes("/rxjs/src/internal/observable/") && cleanId.endsWith(".ts")) {
         const fileName = path.basename(cleanId, ".ts")
-        if (fileName === "index" || fileName === "ConnectableObservable" || fileName.startsWith("inner")) {
+        // Skip index files and classes (not creation functions)
+        if (fileName === "index" || fileName === "ConnectableObservable") {
           return null
         }
         log("MATCHED TS observable:", fileName)
@@ -243,7 +244,7 @@ function patchTs(code: string, patchPath: string) {
  *   export var onErrorResumeNext = onErrorResumeNextWith;
  * By replacing references to the original function name.
  */
-function patchOperator(code: string, patchPath: string, operatorName: string) {
+function patchOperator(code: string, patchPath: string, operatorName: string, options?: { tags?: string[] }) {
   // Match: export function NAME(
   const pattern = new RegExp(`export function (${operatorName})\\(`)
   const match = code.match(pattern)
@@ -254,23 +255,17 @@ function patchOperator(code: string, patchPath: string, operatorName: string) {
   }
 
   // Rename the function: export function NAME → function __NAME__
-  let patched = code.replace(
-    new RegExp(`export function ${operatorName}\\(`),
-    `function __${operatorName}__(`
-  )
+  let patched = code.replace(new RegExp(`export function ${operatorName}\\(`), `function __${operatorName}__(`)
 
   // Also replace any other references to the function name (e.g., in aliases)
   // Match: = NAME; or = NAME) but not __NAME__
-  patched = patched.replace(
-    new RegExp(`= ${operatorName}([;)])`, "g"),
-    `= __${operatorName}__$1`
-  )
+  patched = patched.replace(new RegExp(`= ${operatorName}([;)])`, "g"), `= __${operatorName}__$1`)
 
   // Add import at top and decorated export at bottom
   const result =
     IMPORT_DECORATE_OP(patchPath) +
     patched +
-    `\nexport var ${operatorName} = __decorateOp__(__${operatorName}__, "${operatorName}");\n`
+    `\nexport var ${operatorName} = __decorateOp__(__${operatorName}__, "${operatorName}", ${JSON.stringify({ tags: operatorName.startsWith("inner") ? ["rxjs", "internal"] : ["rxjs"] })});\n`
 
   return { code: result, map: null }
 }
@@ -295,22 +290,16 @@ function patchCreation(code: string, patchPath: string, operatorName: string) {
   }
 
   // Rename the function: export function NAME → function __NAME__
-  let patched = code.replace(
-    new RegExp(`export function ${operatorName}\\(`),
-    `function __${operatorName}__(`
-  )
+  let patched = code.replace(new RegExp(`export function ${operatorName}\\(`), `function __${operatorName}__(`)
 
   // Also replace any other references to the function name (e.g., in aliases)
-  patched = patched.replace(
-    new RegExp(`= ${operatorName}([;)])`, "g"),
-    `= __${operatorName}__$1`
-  )
+  patched = patched.replace(new RegExp(`= ${operatorName}([;)])`, "g"), `= __${operatorName}__$1`)
 
   // Add import at top and decorated export at bottom
   const result =
     IMPORT_DECORATE_CREATE(patchPath) +
     patched +
-    `\nexport var ${operatorName} = __decorateCreate__(__${operatorName}__, "${operatorName}");\n`
+    `\nexport var ${operatorName} = __decorateCreate__(__${operatorName}__, "${operatorName}", ${JSON.stringify({ tags: operatorName.startsWith("inner") ? ["rxjs", "internal"] : ["rxjs"] })});\n`
 
   return { code: result, map: null }
 }
@@ -336,15 +325,12 @@ function patchOperatorTs(code: string, patchPath: string, operatorName: string) 
   let patched = code.replace(pattern, `function __${operatorName}__$2{`)
 
   // Also replace any other references to the function name (e.g., in aliases)
-  patched = patched.replace(
-    new RegExp(`= ${operatorName}([;)])`, "g"),
-    `= __${operatorName}__$1`
-  )
+  patched = patched.replace(new RegExp(`= ${operatorName}([;)])`, "g"), `= __${operatorName}__$1`)
 
   const result =
     IMPORT_DECORATE_OP(patchPath) +
     patched +
-    `\nexport const ${operatorName} = __decorateOp__(__${operatorName}__, "${operatorName}");\n`
+    `\nexport const ${operatorName} = __decorateOp__(__${operatorName}__, "${operatorName}", ${JSON.stringify({ tags: operatorName.startsWith("inner") ? ["rxjs", "internal"] : ["rxjs"] })});\n`
 
   return { code: result, map: null }
 }
@@ -366,15 +352,12 @@ function patchCreationTs(code: string, patchPath: string, operatorName: string) 
   let patched = code.replace(pattern, `function __${operatorName}__$2{`)
 
   // Also replace any other references to the function name (e.g., in aliases)
-  patched = patched.replace(
-    new RegExp(`= ${operatorName}([;)])`, "g"),
-    `= __${operatorName}__$1`
-  )
+  patched = patched.replace(new RegExp(`= ${operatorName}([;)])`, "g"), `= __${operatorName}__$1`)
 
   const result =
     IMPORT_DECORATE_CREATE(patchPath) +
     patched +
-    `\nexport const ${operatorName} = __decorateCreate__(__${operatorName}__, "${operatorName}");\n`
+    `\nexport const ${operatorName} = __decorateCreate__(__${operatorName}__, "${operatorName}", ${JSON.stringify({ tags: operatorName.startsWith("inner") ? ["rxjs", "internal"] : ["rxjs"] })});\n`
 
   return { code: result, map: null }
 }

@@ -47,6 +47,9 @@ cat > "$FILEPATH" << EOF
 
 EOF
 
+# Update LATEST.md to point to this file
+echo "$FILENAME" > "${CHAT_LOG_DIR}/LATEST.md"
+
 echo "$FILEPATH"
 echo ""
 echo "--- COPY AFTER COMPACT ---"

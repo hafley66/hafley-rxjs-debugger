@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { state$ } from "./00.types"
-import { resetIdCounter, setNow, track } from "./01_helpers"
+import { isEnabled$, state$ } from "./00.types"
+import { resetIdCounter, setNow } from "./01_helpers"
 import "./03_scan-accumulator"
 import { BehaviorSubject, lastValueFrom, Observable, Subject, tap } from "rxjs"
 import { proxy } from "./04.operators"
@@ -24,15 +24,15 @@ describe("Class proxy events", () => {
     resetIdCounter()
     setNow(0)
     state$.reset()
-    state$.set({ isEnabled: true })
-    track(true)
+    isEnabled$.next(true)
+    state$.value.stack.hmr_track.push({ id: "test", created_at: 0 } as any)
   })
 
   afterEach(() => {
-    track(false)
+    state$.value.stack.hmr_track.pop()
     resetIdCounter()
     setNow(null)
-    state$.set({ isEnabled: false })
+    isEnabled$.next(false)
   })
 
   it("from is workable", async () => {
@@ -67,40 +67,26 @@ describe("Class proxy events", () => {
             "path": "$args.0.0",
             "value": 12,
           },
+          "10": {
+            "created_at": 1000,
+            "id": "10",
+            "is_function": false,
+            "observable_id": "0",
+            "owner_id": "0",
+            "path": "$args.0",
+          },
           "11": {
             "created_at": 1000,
-            "fn_source": "() => __vite_ssr_import_5__.proxy.of(true)",
             "id": "11",
-            "is_function": true,
-            "owner_id": "10",
-            "path": "$args.0.delay",
-          },
-          "12": {
-            "created_at": 1000,
-            "id": "12",
             "is_function": false,
-            "owner_id": "10",
-            "path": "$args.0.count",
-            "value": 2,
+            "observable_id": "0",
+            "owner_id": "0",
+            "path": "$args.0",
           },
           "14": {
             "created_at": 1000,
-            "fn_source": "(...args2) => {
-            const id = (0,__vite_ssr_import_3__.createId)();
-            __vite_ssr_import_2__._observableEvents$.next({
-              type: "arg-call",
-              id,
-              arg_id,
-              args: args2
-            });
-            const out = value(...args2);
-            __vite_ssr_import_2__._observableEvents$.next({
-              type: "arg-call-return",
-              id,
-              observable_id: __vite_ssr_import_3__.observableIdMap.get(out) ?? "UNKNOWN"
-            });
-            return out;
-          }",
+            "fn_ref": WeakRef {},
+            "fn_source": "() => __vite_ssr_import_5__.proxy.of(true)",
             "id": "14",
             "is_function": true,
             "owner_id": "13",
@@ -116,33 +102,36 @@ describe("Class proxy events", () => {
           },
           "17": {
             "created_at": 1000,
-            "fn_source": "() => {
-                  (0,__vite_ssr_import_2__.setNow)(index++ * 1e3);
-                }",
+            "fn_ref": WeakRef {},
+            "fn_source": "(...callArgs) => {
+            const id = (0,__vite_ssr_import_3__.createId)();
+            __vite_ssr_import_2__._observableEvents$.next({
+              type: "arg-call",
+              id,
+              arg_id,
+              args: callArgs
+            });
+            const fn = __vite_ssr_import_2__.state$.value.store.arg[arg_id]?.fn_ref?.deref();
+            const out = fn ? fn(...callArgs) : void 0;
+            __vite_ssr_import_2__._observableEvents$.next({
+              type: "arg-call-return",
+              id,
+              observable_id: __vite_ssr_import_3__.observableIdMap.get(out) ?? "UNKNOWN"
+            });
+            return out;
+          }",
             "id": "17",
             "is_function": true,
             "owner_id": "16",
-            "path": "$args.0.next",
+            "path": "$args.0.delay",
           },
           "18": {
             "created_at": 1000,
-            "fn_source": "() => {
-                  (0,__vite_ssr_import_2__.setNow)(index++ * 1e3);
-                }",
             "id": "18",
-            "is_function": true,
+            "is_function": false,
             "owner_id": "16",
-            "path": "$args.0.complete",
-          },
-          "19": {
-            "created_at": 1000,
-            "fn_source": "() => {
-                  (0,__vite_ssr_import_2__.setNow)(index++ * 1e3);
-                }",
-            "id": "19",
-            "is_function": true,
-            "owner_id": "16",
-            "path": "$args.0.error",
+            "path": "$args.0.count",
+            "value": 2,
           },
           "2": {
             "created_at": 1000,
@@ -153,63 +142,52 @@ describe("Class proxy events", () => {
             "path": "$args.0.1",
             "value": 15,
           },
+          "20": {
+            "created_at": 1000,
+            "fn_ref": WeakRef {},
+            "fn_source": "() => {
+                  (0,__vite_ssr_import_2__.setNow)(index++ * 1e3);
+                }",
+            "id": "20",
+            "is_function": true,
+            "owner_id": "19",
+            "path": "$args.0.next",
+          },
           "21": {
             "created_at": 1000,
-            "fn_source": "(...args2) => {
-            const id = (0,__vite_ssr_import_3__.createId)();
-            __vite_ssr_import_2__._observableEvents$.next({
-              type: "arg-call",
-              id,
-              arg_id,
-              args: args2
-            });
-            const out = value(...args2);
-            __vite_ssr_import_2__._observableEvents$.next({
-              type: "arg-call-return",
-              id,
-              observable_id: __vite_ssr_import_3__.observableIdMap.get(out) ?? "UNKNOWN"
-            });
-            return out;
-          }",
+            "fn_ref": WeakRef {},
+            "fn_source": "() => {
+                  (0,__vite_ssr_import_2__.setNow)(index++ * 1e3);
+                }",
             "id": "21",
             "is_function": true,
-            "owner_id": "20",
-            "path": "$args.0.next",
+            "owner_id": "19",
+            "path": "$args.0.complete",
           },
           "22": {
             "created_at": 1000,
-            "fn_source": "(...args2) => {
-            const id = (0,__vite_ssr_import_3__.createId)();
-            __vite_ssr_import_2__._observableEvents$.next({
-              type: "arg-call",
-              id,
-              arg_id,
-              args: args2
-            });
-            const out = value(...args2);
-            __vite_ssr_import_2__._observableEvents$.next({
-              type: "arg-call-return",
-              id,
-              observable_id: __vite_ssr_import_3__.observableIdMap.get(out) ?? "UNKNOWN"
-            });
-            return out;
-          }",
+            "fn_ref": WeakRef {},
+            "fn_source": "() => {
+                  (0,__vite_ssr_import_2__.setNow)(index++ * 1e3);
+                }",
             "id": "22",
             "is_function": true,
-            "owner_id": "20",
-            "path": "$args.0.complete",
+            "owner_id": "19",
+            "path": "$args.0.error",
           },
-          "23": {
+          "24": {
             "created_at": 1000,
-            "fn_source": "(...args2) => {
+            "fn_ref": WeakRef {},
+            "fn_source": "(...callArgs) => {
             const id = (0,__vite_ssr_import_3__.createId)();
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call",
               id,
               arg_id,
-              args: args2
+              args: callArgs
             });
-            const out = value(...args2);
+            const fn = __vite_ssr_import_2__.state$.value.store.arg[arg_id]?.fn_ref?.deref();
+            const out = fn ? fn(...callArgs) : void 0;
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call-return",
               id,
@@ -217,9 +195,59 @@ describe("Class proxy events", () => {
             });
             return out;
           }",
-            "id": "23",
+            "id": "24",
             "is_function": true,
-            "owner_id": "20",
+            "owner_id": "23",
+            "path": "$args.0.next",
+          },
+          "25": {
+            "created_at": 1000,
+            "fn_ref": WeakRef {},
+            "fn_source": "(...callArgs) => {
+            const id = (0,__vite_ssr_import_3__.createId)();
+            __vite_ssr_import_2__._observableEvents$.next({
+              type: "arg-call",
+              id,
+              arg_id,
+              args: callArgs
+            });
+            const fn = __vite_ssr_import_2__.state$.value.store.arg[arg_id]?.fn_ref?.deref();
+            const out = fn ? fn(...callArgs) : void 0;
+            __vite_ssr_import_2__._observableEvents$.next({
+              type: "arg-call-return",
+              id,
+              observable_id: __vite_ssr_import_3__.observableIdMap.get(out) ?? "UNKNOWN"
+            });
+            return out;
+          }",
+            "id": "25",
+            "is_function": true,
+            "owner_id": "23",
+            "path": "$args.0.complete",
+          },
+          "26": {
+            "created_at": 1000,
+            "fn_ref": WeakRef {},
+            "fn_source": "(...callArgs) => {
+            const id = (0,__vite_ssr_import_3__.createId)();
+            __vite_ssr_import_2__._observableEvents$.next({
+              type: "arg-call",
+              id,
+              arg_id,
+              args: callArgs
+            });
+            const fn = __vite_ssr_import_2__.state$.value.store.arg[arg_id]?.fn_ref?.deref();
+            const out = fn ? fn(...callArgs) : void 0;
+            __vite_ssr_import_2__._observableEvents$.next({
+              type: "arg-call-return",
+              id,
+              observable_id: __vite_ssr_import_3__.observableIdMap.get(out) ?? "UNKNOWN"
+            });
+            return out;
+          }",
+            "id": "26",
+            "is_function": true,
+            "owner_id": "23",
             "path": "$args.0.error",
           },
           "3": {
@@ -228,7 +256,7 @@ describe("Class proxy events", () => {
             "is_function": false,
             "observable_id": "0",
             "owner_id": "0",
-            "path": "$args.0",
+            "path": "$args.0.0",
             "value": 12,
           },
           "4": {
@@ -237,34 +265,25 @@ describe("Class proxy events", () => {
             "is_function": false,
             "observable_id": "0",
             "owner_id": "0",
-            "path": "$args.1",
+            "path": "$args.0.1",
             "value": 15,
           },
-          "45": {
+          "48": {
             "created_at": 2000,
-            "id": "45",
+            "id": "48",
             "is_function": false,
-            "observable_id": "44",
-            "owner_id": "44",
+            "observable_id": "47",
+            "owner_id": "47",
             "path": "$args.0.0",
             "value": true,
           },
-          "46": {
+          "49": {
             "created_at": 2000,
-            "id": "46",
+            "id": "49",
             "is_function": false,
-            "observable_id": "44",
-            "owner_id": "44",
-            "path": "$args.0",
-            "value": true,
-          },
-          "47": {
-            "created_at": 2000,
-            "id": "47",
-            "is_function": false,
-            "observable_id": "44",
-            "owner_id": "44",
-            "path": "$args.0",
+            "observable_id": "47",
+            "owner_id": "47",
+            "path": "$args.0.0",
             "value": true,
           },
           "5": {
@@ -275,6 +294,32 @@ describe("Class proxy events", () => {
             "owner_id": "0",
             "path": "$args.0",
             "value": 12,
+          },
+          "50": {
+            "created_at": 2000,
+            "id": "50",
+            "is_function": false,
+            "observable_id": "47",
+            "owner_id": "47",
+            "path": "$args.0",
+            "value": true,
+          },
+          "51": {
+            "created_at": 2000,
+            "id": "51",
+            "is_function": false,
+            "observable_id": "47",
+            "owner_id": "47",
+            "path": "$args.0",
+            "value": true,
+          },
+          "52": {
+            "created_at": 2000,
+            "id": "52",
+            "is_function": false,
+            "observable_id": "47",
+            "owner_id": "47",
+            "path": "$args.0",
           },
           "6": {
             "created_at": 1000,
@@ -292,6 +337,7 @@ describe("Class proxy events", () => {
             "observable_id": "0",
             "owner_id": "0",
             "path": "$args.0",
+            "value": 12,
           },
           "8": {
             "created_at": 1000,
@@ -299,76 +345,82 @@ describe("Class proxy events", () => {
             "is_function": false,
             "observable_id": "0",
             "owner_id": "0",
+            "path": "$args.1",
+            "value": 15,
+          },
+          "9": {
+            "created_at": 1000,
+            "id": "9",
+            "is_function": false,
+            "observable_id": "0",
+            "owner_id": "0",
             "path": "$args.0",
           },
         },
         "arg_call": {
-          "42": {
+          "45": {
+            "arg_id": "17",
+            "created_at": 2000,
+            "created_at_end": 2000,
+            "id": "45",
+            "input_values": [
+              1,
+            ],
+            "observable_id": "47",
+            "subscription_id": "32",
+          },
+          "46": {
             "arg_id": "14",
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "42",
+            "id": "46",
             "input_values": [
               1,
             ],
-            "observable_id": "44",
-            "subscription_id": "28",
-          },
-          "43": {
-            "arg_id": "11",
-            "created_at": 2000,
-            "created_at_end": 2000,
-            "id": "43",
-            "input_values": [
-              1,
-            ],
-            "observable_id": "44",
-            "subscription_id": "28",
+            "observable_id": "47",
+            "subscription_id": "32",
           },
         },
+        "hmr_track": {},
         "observable": {
           "0": {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "0",
             "name": "from",
+            "obs_ref": WeakRef {},
           },
-          "44": {
+          "47": {
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "44",
-            "name": "of",
+            "id": "47",
+            "name": "innerFrom",
+            "obs_ref": WeakRef {},
           },
         },
         "operator": {
-          "24": {
+          "27": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "24",
+            "id": "27",
             "index": 0,
-            "operator_fun_id": "10",
-            "pipe_id": "9",
+            "operator_fun_id": "13",
+            "pipe_id": "12",
             "source_observable_id": "0",
-            "target_observable_id": "25",
+            "target_observable_id": "28",
           },
-          "26": {
+          "29": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "26",
+            "id": "29",
             "index": 1,
-            "operator_fun_id": "16",
-            "pipe_id": "9",
-            "source_observable_id": "25",
-            "target_observable_id": "27",
+            "operator_fun_id": "19",
+            "pipe_id": "12",
+            "source_observable_id": "28",
+            "target_observable_id": "30",
           },
         },
         "operator_fun": {
-          "10": {
-            "created_at": 1000,
-            "created_at_end": 1000,
-            "id": "10",
-            "name": "repeat",
-          },
           "13": {
             "created_at": 1000,
             "created_at_end": 1000,
@@ -379,222 +431,73 @@ describe("Class proxy events", () => {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "16",
-            "name": "tap",
+            "name": "repeat",
           },
-          "20": {
+          "19": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "20",
+            "id": "19",
+            "name": "tap",
+          },
+          "23": {
+            "created_at": 1000,
+            "created_at_end": 1000,
+            "id": "23",
             "name": "tap",
           },
         },
         "pipe": {
-          "9": {
+          "12": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "9",
-            "observable_id": "27",
+            "id": "12",
+            "observable_id": "30",
             "parent_observable_id": "0",
           },
         },
-        "send": {
+        "send": {},
+        "subscription": {
           "31": {
             "created_at": 1000,
-            "created_at_end": 1000,
+            "created_at_end": 5000,
             "id": "31",
-            "observable_id": "0",
-            "subscription_id": "30",
-            "type": "next",
-            "value": 12,
+            "is_sync": false,
+            "observable_id": "30",
+            "parent_subscription_id": undefined,
           },
           "32": {
             "created_at": 1000,
-            "created_at_end": 1000,
+            "created_at_end": 5000,
             "id": "32",
-            "observable_id": "25",
-            "subscription_id": "29",
-            "type": "next",
-            "value": 12,
-          },
-          "35": {
-            "created_at": 1000,
-            "created_at_end": 1000,
-            "id": "35",
-            "observable_id": "27",
-            "subscription_id": "28",
-            "type": "next",
-            "value": 12,
-          },
-          "36": {
-            "created_at": 1000,
-            "created_at_end": 2000,
-            "id": "36",
-            "observable_id": "0",
-            "subscription_id": "30",
-            "type": "next",
-            "value": 15,
-          },
-          "37": {
-            "created_at": 1000,
-            "created_at_end": 2000,
-            "id": "37",
-            "observable_id": "25",
-            "subscription_id": "29",
-            "type": "next",
-            "value": 15,
-          },
-          "40": {
-            "created_at": 2000,
-            "created_at_end": 2000,
-            "id": "40",
-            "observable_id": "27",
-            "subscription_id": "28",
-            "type": "next",
-            "value": 15,
-          },
-          "41": {
-            "created_at": 2000,
-            "created_at_end": 2000,
-            "id": "41",
-            "observable_id": "0",
-            "subscription_id": "30",
-            "type": "complete",
-          },
-          "49": {
-            "created_at": 2000,
-            "created_at_end": 5000,
-            "id": "49",
-            "observable_id": "44",
-            "subscription_id": "48",
-            "type": "next",
-            "value": true,
-          },
-          "51": {
-            "created_at": 2000,
-            "created_at_end": 3000,
-            "id": "51",
-            "observable_id": "0",
-            "subscription_id": "50",
-            "type": "next",
-            "value": 12,
-          },
-          "52": {
-            "created_at": 2000,
-            "created_at_end": 3000,
-            "id": "52",
-            "observable_id": "25",
-            "subscription_id": "29",
-            "type": "next",
-            "value": 12,
-          },
-          "55": {
-            "created_at": 3000,
-            "created_at_end": 3000,
-            "id": "55",
-            "observable_id": "27",
-            "subscription_id": "28",
-            "type": "next",
-            "value": 12,
-          },
-          "56": {
-            "created_at": 3000,
-            "created_at_end": 4000,
-            "id": "56",
-            "observable_id": "0",
-            "subscription_id": "50",
-            "type": "next",
-            "value": 15,
-          },
-          "57": {
-            "created_at": 3000,
-            "created_at_end": 4000,
-            "id": "57",
-            "observable_id": "25",
-            "subscription_id": "29",
-            "type": "next",
-            "value": 15,
-          },
-          "60": {
-            "created_at": 4000,
-            "created_at_end": 4000,
-            "id": "60",
-            "observable_id": "27",
-            "subscription_id": "28",
-            "type": "next",
-            "value": 15,
-          },
-          "61": {
-            "created_at": 4000,
-            "created_at_end": 5000,
-            "id": "61",
-            "observable_id": "0",
-            "subscription_id": "50",
-            "type": "complete",
-          },
-          "62": {
-            "created_at": 4000,
-            "created_at_end": 5000,
-            "id": "62",
-            "observable_id": "25",
-            "subscription_id": "29",
-            "type": "complete",
-          },
-          "65": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "65",
-            "observable_id": "27",
-            "subscription_id": "28",
-            "type": "complete",
-          },
-          "66": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "66",
-            "observable_id": "44",
-            "subscription_id": "48",
-            "type": "complete",
-          },
-        },
-        "subscription": {
-          "28": {
-            "created_at": 1000,
-            "created_at_end": 5000,
-            "id": "28",
             "is_sync": false,
-            "observable_id": "27",
-            "parent_subscription_id": undefined,
+            "observable_id": "28",
+            "parent_subscription_id": "31",
           },
-          "29": {
+          "33": {
             "created_at": 1000,
-            "id": "29",
-            "is_sync": false,
-            "observable_id": "25",
-            "parent_subscription_id": "28",
-          },
-          "30": {
-            "created_at": 1000,
-            "id": "30",
+            "created_at_end": 2000,
+            "id": "33",
             "is_sync": false,
             "observable_id": "0",
-            "parent_subscription_id": "29",
+            "parent_subscription_id": "32",
             "unsubscribed_at": 2000,
             "unsubscribed_at_end": 2000,
           },
-          "48": {
-            "created_at": 2000,
-            "id": "48",
-            "is_sync": false,
-            "observable_id": "44",
-            "parent_subscription_id": "28",
-          },
-          "50": {
+          "53": {
             "created_at": 2000,
             "created_at_end": 5000,
-            "id": "50",
+            "id": "53",
+            "is_sync": false,
+            "observable_id": "47",
+            "parent_subscription_id": "32",
+          },
+          "55": {
+            "created_at": 2000,
+            "created_at_end": 5000,
+            "id": "55",
             "is_sync": false,
             "observable_id": "0",
-            "parent_subscription_id": "48",
+            "parent_subscription_id": "53",
           },
         },
       }
@@ -603,15 +506,15 @@ describe("Class proxy events", () => {
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "from                                                                                                                                                                                                                     // #0
         .pipe(                                                                                                                                                                                                                 // 
-          repeat({ delay: () => proxy.of(true), count: 2 }),                                                                                                                                                                   // #25
+          repeat({ delay: () => proxy.of(true), count: 2 }),                                                                                                                                                                   // #28
           tap({ next: () => {
                   (0,setNow)(index++ * 1e3);
                 }, complete: () => {
                   (0,setNow)(index++ * 1e3);
                 }, error: () => {
                   (0,setNow)(index++ * 1e3);
-                } }),  // #27
-        )                                                                                                                                                                                                                      // -> #27"
+                } }),  // #30
+        )                                                                                                                                                                                                                      // -> #30"
     `)
   })
 
@@ -627,24 +530,28 @@ describe("Class proxy events", () => {
       {
         "arg": {},
         "arg_call": {},
+        "hmr_track": {},
         "observable": {
           "0": {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "0",
             "name": "new Observable",
+            "obs_ref": WeakRef {},
           },
           "1": {
             "created_at": 2000,
             "created_at_end": 2000,
             "id": "1",
             "name": "new Subject",
+            "obs_ref": WeakRef {},
           },
           "2": {
             "created_at": 3000,
             "created_at_end": 3000,
             "id": "2",
             "name": "new BehaviorSubject",
+            "obs_ref": WeakRef {},
           },
         },
         "operator": {},
@@ -685,6 +592,7 @@ describe("Class proxy events", () => {
         "arg": {
           "11": {
             "created_at": 5000,
+            "fn_ref": WeakRef {},
             "fn_source": "(sum, it2) => {
               return sum + it2;
             }",
@@ -703,15 +611,17 @@ describe("Class proxy events", () => {
           },
           "14": {
             "created_at": 5000,
-            "fn_source": "(...args2) => {
+            "fn_ref": WeakRef {},
+            "fn_source": "(...callArgs) => {
             const id = (0,__vite_ssr_import_3__.createId)();
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call",
               id,
               arg_id,
-              args: args2
+              args: callArgs
             });
-            const out = value(...args2);
+            const fn = __vite_ssr_import_2__.state$.value.store.arg[arg_id]?.fn_ref?.deref();
+            const out = fn ? fn(...callArgs) : void 0;
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call-return",
               id,
@@ -734,15 +644,17 @@ describe("Class proxy events", () => {
           },
           "17": {
             "created_at": 5000,
-            "fn_source": "(...args2) => {
+            "fn_ref": WeakRef {},
+            "fn_source": "(...callArgs) => {
             const id = (0,__vite_ssr_import_3__.createId)();
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call",
               id,
               arg_id,
-              args: args2
+              args: callArgs
             });
-            const out = value(...args2);
+            const fn = __vite_ssr_import_2__.state$.value.store.arg[arg_id]?.fn_ref?.deref();
+            const out = fn ? fn(...callArgs) : void 0;
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call-return",
               id,
@@ -781,6 +693,7 @@ describe("Class proxy events", () => {
           },
           "3": {
             "created_at": 3000,
+            "fn_ref": WeakRef {},
             "fn_source": "(it2) => it2 * 2",
             "id": "3",
             "is_function": true,
@@ -789,15 +702,17 @@ describe("Class proxy events", () => {
           },
           "5": {
             "created_at": 3000,
-            "fn_source": "(...args2) => {
+            "fn_ref": WeakRef {},
+            "fn_source": "(...callArgs) => {
             const id = (0,__vite_ssr_import_3__.createId)();
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call",
               id,
               arg_id,
-              args: args2
+              args: callArgs
             });
-            const out = value(...args2);
+            const fn = __vite_ssr_import_2__.state$.value.store.arg[arg_id]?.fn_ref?.deref();
+            const out = fn ? fn(...callArgs) : void 0;
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call-return",
               id,
@@ -812,6 +727,7 @@ describe("Class proxy events", () => {
           },
           "7": {
             "created_at": 4000,
+            "fn_ref": WeakRef {},
             "fn_source": "(it2) => it2 !== 0",
             "id": "7",
             "is_function": true,
@@ -820,15 +736,17 @@ describe("Class proxy events", () => {
           },
           "9": {
             "created_at": 4000,
-            "fn_source": "(...args2) => {
+            "fn_ref": WeakRef {},
+            "fn_source": "(...callArgs) => {
             const id = (0,__vite_ssr_import_3__.createId)();
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call",
               id,
               arg_id,
-              args: args2
+              args: callArgs
             });
-            const out = value(...args2);
+            const fn = __vite_ssr_import_2__.state$.value.store.arg[arg_id]?.fn_ref?.deref();
+            const out = fn ? fn(...callArgs) : void 0;
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call-return",
               id,
@@ -843,12 +761,14 @@ describe("Class proxy events", () => {
           },
         },
         "arg_call": {},
+        "hmr_track": {},
         "observable": {
           "0": {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "0",
             "name": "new Observable",
+            "obs_ref": WeakRef {},
           },
         },
         "operator": {
@@ -962,8 +882,8 @@ describe("Class proxy events", () => {
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "of                                                           // #0
         .pipe(                                                     // 
-          switchMap((val, index) => proxy.of(index + "/" + val)),  // #10
-        )                                                          // -> #10"
+          switchMap((val, index) => proxy.of(index + "/" + val)),  // #11
+        )                                                          // -> #11"
     `)
 
     expect(state$.value.store).toMatchInlineSnapshot(`
@@ -978,31 +898,22 @@ describe("Class proxy events", () => {
             "path": "$args.0.0",
             "value": 5,
           },
-          "17": {
-            "created_at": 0,
-            "id": "17",
-            "is_function": false,
-            "observable_id": "16",
-            "owner_id": "16",
-            "path": "$args.0.0",
-            "value": "0/5",
-          },
           "18": {
             "created_at": 0,
             "id": "18",
             "is_function": false,
-            "observable_id": "16",
-            "owner_id": "16",
-            "path": "$args.0",
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0.0",
             "value": "0/5",
           },
           "19": {
             "created_at": 0,
             "id": "19",
             "is_function": false,
-            "observable_id": "16",
-            "owner_id": "16",
-            "path": "$args.0",
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0.0",
             "value": "0/5",
           },
           "2": {
@@ -1011,8 +922,34 @@ describe("Class proxy events", () => {
             "is_function": false,
             "observable_id": "0",
             "owner_id": "0",
-            "path": "$args.0",
+            "path": "$args.0.0",
             "value": 5,
+          },
+          "20": {
+            "created_at": 0,
+            "id": "20",
+            "is_function": false,
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0",
+            "value": "0/5",
+          },
+          "21": {
+            "created_at": 0,
+            "id": "21",
+            "is_function": false,
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0",
+            "value": "0/5",
+          },
+          "22": {
+            "created_at": 0,
+            "id": "22",
+            "is_function": false,
+            "observable_id": "17",
+            "owner_id": "17",
+            "path": "$args.0",
           },
           "3": {
             "created_at": 0,
@@ -1023,25 +960,37 @@ describe("Class proxy events", () => {
             "path": "$args.0",
             "value": 5,
           },
-          "6": {
+          "4": {
             "created_at": 0,
+            "id": "4",
+            "is_function": false,
+            "observable_id": "0",
+            "owner_id": "0",
+            "path": "$args.0",
+            "value": 5,
+          },
+          "7": {
+            "created_at": 0,
+            "fn_ref": WeakRef {},
             "fn_source": "(val, index) => __vite_ssr_import_5__.proxy.of(index + "/" + val)",
-            "id": "6",
+            "id": "7",
             "is_function": true,
-            "owner_id": "5",
+            "owner_id": "6",
             "path": "$args.0",
           },
-          "8": {
+          "9": {
             "created_at": 0,
-            "fn_source": "(...args2) => {
+            "fn_ref": WeakRef {},
+            "fn_source": "(...callArgs) => {
             const id = (0,__vite_ssr_import_3__.createId)();
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call",
               id,
               arg_id,
-              args: args2
+              args: callArgs
             });
-            const out = value(...args2);
+            const fn = __vite_ssr_import_2__.state$.value.store.arg[arg_id]?.fn_ref?.deref();
+            const out = fn ? fn(...callArgs) : void 0;
             __vite_ssr_import_2__._observableEvents$.next({
               type: "arg-call-return",
               id,
@@ -1049,27 +998,15 @@ describe("Class proxy events", () => {
             });
             return out;
           }",
-            "id": "8",
+            "id": "9",
             "is_function": true,
-            "owner_id": "7",
+            "owner_id": "8",
             "path": "$args.0",
           },
         },
         "arg_call": {
-          "14": {
-            "arg_id": "8",
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "14",
-            "input_values": [
-              5,
-              0,
-            ],
-            "observable_id": "16",
-            "subscription_id": "11",
-          },
           "15": {
-            "arg_id": "6",
+            "arg_id": "9",
             "created_at": 0,
             "created_at_end": 0,
             "id": "15",
@@ -1077,136 +1014,99 @@ describe("Class proxy events", () => {
               5,
               0,
             ],
-            "observable_id": "16",
-            "subscription_id": "11",
+            "observable_id": "17",
+            "subscription_id": "13",
+          },
+          "16": {
+            "arg_id": "7",
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "16",
+            "input_values": [
+              5,
+              0,
+            ],
+            "observable_id": "17",
+            "subscription_id": "13",
           },
         },
+        "hmr_track": {},
         "observable": {
           "0": {
             "created_at": 0,
             "created_at_end": 0,
             "id": "0",
             "name": "of",
+            "obs_ref": WeakRef {},
           },
-          "16": {
+          "17": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "16",
-            "name": "of",
+            "id": "17",
+            "name": "innerFrom",
+            "obs_ref": WeakRef {},
           },
         },
         "operator": {
-          "9": {
+          "10": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "9",
+            "id": "10",
             "index": 0,
-            "operator_fun_id": "5",
-            "pipe_id": "4",
+            "operator_fun_id": "6",
+            "pipe_id": "5",
             "source_observable_id": "0",
-            "target_observable_id": "10",
+            "target_observable_id": "11",
           },
         },
         "operator_fun": {
-          "5": {
+          "6": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "5",
+            "id": "6",
             "name": "switchMap",
           },
-          "7": {
+          "8": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "7",
+            "id": "8",
             "name": "switchMap",
           },
         },
         "pipe": {
-          "4": {
+          "5": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "4",
-            "observable_id": "10",
+            "id": "5",
+            "observable_id": "11",
             "parent_observable_id": "0",
           },
         },
-        "send": {
-          "13": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "13",
-            "observable_id": "0",
-            "subscription_id": "12",
-            "type": "next",
-            "value": 5,
-          },
-          "21": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "21",
-            "observable_id": "16",
-            "subscription_id": "20",
-            "type": "next",
-            "value": "0/5",
-          },
-          "22": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "22",
-            "observable_id": "10",
-            "subscription_id": "11",
-            "type": "next",
-            "value": "0/5",
-          },
-          "23": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "23",
-            "observable_id": "16",
-            "subscription_id": "20",
-            "type": "complete",
-          },
-          "24": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "24",
-            "observable_id": "0",
-            "subscription_id": "12",
-            "type": "complete",
-          },
-          "25": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "25",
-            "observable_id": "10",
-            "subscription_id": "11",
-            "type": "complete",
-          },
-        },
+        "send": {},
         "subscription": {
-          "11": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "11",
-            "is_sync": false,
-            "observable_id": "10",
-            "parent_subscription_id": undefined,
-          },
           "12": {
             "created_at": 0,
             "created_at_end": 0,
             "id": "12",
             "is_sync": false,
-            "observable_id": "0",
-            "parent_subscription_id": "11",
+            "observable_id": "11",
+            "parent_subscription_id": undefined,
           },
-          "20": {
+          "13": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "20",
+            "id": "13",
             "is_sync": false,
-            "observable_id": "16",
-            "parent_subscription_id": "11",
+            "observable_id": "0",
+            "parent_subscription_id": "12",
+          },
+          "23": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "23",
+            "is_sync": false,
+            "observable_id": "17",
+            "parent_subscription_id": "13",
           },
         },
       }
@@ -1219,12 +1119,12 @@ describe("Class proxy events", () => {
     shared$.subscribe()
 
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
-      "of            // #0
+      "innerFrom     // #0
         .pipe(      // 
-          share(),  // #11
-        )           // -> #11
-      new Subject   // #13
-      new Subject   // #26"
+          share(),  // #13
+        )           // -> #13
+      new Subject   // #15
+      new Subject   // #29"
     `)
   })
 
@@ -1235,12 +1135,12 @@ describe("Class proxy events", () => {
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "of                         // #0
         .pipe(                   // 
-          map((x) => x * 2),     // #10
-        )                        // -> #10
-      of                         // #11
+          map((x) => x * 2),     // #11
+        )                        // -> #11
+      of                         // #12
         .pipe(                   // 
-          filter((x) => x > 0),  // #21
-        )                        // -> #21"
+          filter((x) => x > 0),  // #23
+        )                        // -> #23"
     `)
   })
 
@@ -1251,25 +1151,25 @@ describe("Class proxy events", () => {
 
     expect(state$.value.store.pipe).toMatchInlineSnapshot(`
       {
-        "15": {
+        "17": {
           "created_at": 0,
           "created_at_end": 0,
-          "id": "15",
-          "observable_id": "21",
+          "id": "17",
+          "observable_id": "23",
+          "parent_observable_id": "12",
+        },
+        "24": {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "24",
+          "observable_id": "30",
           "parent_observable_id": "11",
         },
-        "22": {
+        "5": {
           "created_at": 0,
           "created_at_end": 0,
-          "id": "22",
-          "observable_id": "28",
-          "parent_observable_id": "10",
-        },
-        "4": {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "4",
-          "observable_id": "10",
+          "id": "5",
+          "observable_id": "11",
           "parent_observable_id": "0",
         },
       }
@@ -1277,16 +1177,16 @@ describe("Class proxy events", () => {
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "of                         // #0
         .pipe(                   // 
-          map((x) => x * 2),     // #10
-        )                        // -> #10
-      of                         // #11
+          map((x) => x * 2),     // #11
+        )                        // -> #11
+      of                         // #12
         .pipe(                   // 
-          filter((x) => x > 0),  // #21
-        )                        // -> #21
-      #10                        // 
+          filter((x) => x > 0),  // #23
+        )                        // -> #23
+      #11                        // 
         .pipe(                   // 
-          switchMap(() => b$),   // #28
-        )                        // -> #28"
+          switchMap(() => b$),   // #30
+        )                        // -> #30"
     `)
   })
 })
@@ -1296,15 +1196,15 @@ describe("06_queries", () => {
     resetIdCounter()
     setNow(0)
     state$.reset()
-    state$.set({ isEnabled: true })
-    track(true)
+    isEnabled$.next(true)
+    state$.value.stack.hmr_track.push({ id: "test", created_at: 0 } as any)
   })
 
   afterEach(() => {
-    track(false)
+    state$.value.stack.hmr_track.pop()
     resetIdCounter()
     setNow(null)
-    state$.set({ isEnabled: false })
+    isEnabled$.next(false)
   })
 
   it("getRootObservables excludes operator targets and runtime obs", () => {
@@ -1334,7 +1234,7 @@ describe("06_queries", () => {
     expect(pipes.map(p => ({ id: p.id, parent_observable_id: p.parent_observable_id }))).toMatchInlineSnapshot(`
       [
         {
-          "id": "4",
+          "id": "5",
           "parent_observable_id": "0",
         },
       ]
@@ -1355,11 +1255,11 @@ describe("06_queries", () => {
       [
         {
           "index": 0,
-          "operator_fun_id": "5",
+          "operator_fun_id": "6",
         },
         {
           "index": 1,
-          "operator_fun_id": "9",
+          "operator_fun_id": "10",
         },
       ]
     `)
@@ -1399,13 +1299,13 @@ describe("06_queries", () => {
     ).toMatchInlineSnapshot(`
       [
         {
-          "id": "4",
+          "id": "5",
           "observable_id": "0",
           "parent": undefined,
         },
         {
-          "id": "11",
-          "observable_id": "7",
+          "id": "13",
+          "observable_id": "8",
           "parent": undefined,
         },
       ]
@@ -1425,12 +1325,8 @@ describe("06_queries", () => {
     expect(children.map(c => ({ id: c.id, parent: c.parent_subscription_id }))).toMatchInlineSnapshot(`
       [
         {
-          "id": "12",
-          "parent": "11",
-        },
-        {
-          "id": "20",
-          "parent": "11",
+          "id": "13",
+          "parent": "12",
         },
       ]
     `)
@@ -1443,36 +1339,7 @@ describe("06_queries", () => {
     const topLevel = getTopLevelSubscriptions(store)
     const sends = getSendsFor(store, topLevel[0]!.id)
 
-    expect(sends).toMatchInlineSnapshot(`
-      [
-        {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "8",
-          "observable_id": "0",
-          "subscription_id": "7",
-          "type": "next",
-          "value": 1,
-        },
-        {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "9",
-          "observable_id": "0",
-          "subscription_id": "7",
-          "type": "next",
-          "value": 2,
-        },
-        {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "10",
-          "observable_id": "0",
-          "subscription_id": "7",
-          "type": "complete",
-        },
-      ]
-    `)
+    expect(sends).toMatchInlineSnapshot(`[]`)
   })
 
   it("getAllSends returns all sends sorted by time", () => {
@@ -1483,30 +1350,7 @@ describe("06_queries", () => {
 
     const sends = getAllSends(state$.value.store)
 
-    expect(sends.map(s => ({ created_at: s.created_at, type: s.type, value: s.value }))).toMatchInlineSnapshot(`
-      [
-        {
-          "created_at": 100,
-          "type": "next",
-          "value": 1,
-        },
-        {
-          "created_at": 100,
-          "type": "complete",
-          "value": undefined,
-        },
-        {
-          "created_at": 200,
-          "type": "next",
-          "value": 2,
-        },
-        {
-          "created_at": 200,
-          "type": "complete",
-          "value": undefined,
-        },
-      ]
-    `)
+    expect(sends.map(s => ({ created_at: s.created_at, type: s.type, value: s.value }))).toMatchInlineSnapshot(`[]`)
   })
 
   it("getDynamicObs returns observables created by arg during subscription", () => {
@@ -1522,8 +1366,8 @@ describe("06_queries", () => {
     expect(dynamicObs.map(o => ({ id: o!.id, name: o!.name }))).toMatchInlineSnapshot(`
       [
         {
-          "id": "16",
-          "name": "of",
+          "id": "17",
+          "name": "innerFrom",
         },
       ]
     `)
@@ -1562,9 +1406,9 @@ describe("06_queries", () => {
 
     expect({ id: found!.id, arg_id: found!.arg_id, observable_id: found!.observable_id }).toMatchInlineSnapshot(`
       {
-        "arg_id": "8",
-        "id": "14",
-        "observable_id": "16",
+        "arg_id": "9",
+        "id": "15",
+        "observable_id": "17",
       }
     `)
   })

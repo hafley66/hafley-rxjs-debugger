@@ -27,30 +27,6 @@ export function setNow(time: number | null) {
 
 export const observableIdMap = new WeakMap<Observable<any>, string>()
 
-// Tracking state - separate from isEnabled
-let _isTracking = false
-
-export function isTracking(): boolean {
-  return _isTracking
-}
-
-// Overloaded track function
-export function track<T>(fnOrBool: (() => T) | boolean): T | void {
-  if (typeof fnOrBool === "boolean") {
-    // Imperative: track(true) / track(false)
-    _isTracking = fnOrBool
-    return
-  }
-
-  // Scoped: track(() => myObs$)
-  const prev = _isTracking
-  _isTracking = true
-  try {
-    return fnOrBool()
-  } finally {
-    _isTracking = prev
-  }
-}
 
 /*
     cycle.js

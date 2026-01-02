@@ -2,7 +2,7 @@
  * Monkey-patches Observable.prototype.pipe and .subscribe
  * Called by vite plugin after Observable class is defined.
  *
- * Checks state$.value.isEnabled to determine if tracking is active.
+ * Checks isEnabled$ to determine if tracking is active.
  */
 
 import type { Observable } from "rxjs"
@@ -12,17 +12,36 @@ import { createId, observableIdMap } from "./01_helpers"
 // Late-bound references - set by bootstrap
 let _emit: ((event: ObservableEvent) => void) | null = null
 let _getIsEnabled: (() => boolean) | null = null
-let _getIsTracking: (() => boolean) | null = null
+let _getTrackStack: (() => { id: string }[]) | null = null
 const _buffer: ObservableEvent[] = []
 
-const shouldEmit = (): boolean => {
+// Tag context - set by decorators for tagging observables/operators
+let _tagContext: string[] = []
+export const getTagContext = () => _tagContext
+
+// Events that don't require track context at emit time
+// - track-*: manage context itself
+// - send-*: filtered in accumulator based on origin track
+const UNTRACKED_EVENTS = new Set([
+  "track-call",
+  "track-call-return",
+  "track-update",
+  "send-call",
+  "send-call-return",
+])
+
+const shouldEmit = (eventType: string): boolean => {
   const enabled = _getIsEnabled?.() ?? false
-  const tracking = _getIsTracking?.() ?? true // default true for backward compat
-  return enabled && tracking
+  if (!enabled) return false
+  // Untracked events always emit when enabled
+  if (UNTRACKED_EVENTS.has(eventType)) return true
+  // Structured events require track context
+  const trackStack = _getTrackStack?.() ?? []
+  return trackStack.length > 0
 }
 
 export const emit = (event: ObservableEvent) => {
-  if (!shouldEmit()) return
+  if (!shouldEmit(event.type)) return
   if (_emit) {
     _emit(event)
   } else {
@@ -33,15 +52,15 @@ export const emit = (event: ObservableEvent) => {
 export const bootstrap = (
   subject: { next: (e: ObservableEvent) => void },
   getIsEnabled: () => boolean,
-  getIsTracking: () => boolean,
+  getTrackStack: () => { id: string }[],
 ) => {
+  _emit = e => subject.next(e)
   for (const event of _buffer) {
-    subject.next(event)
+    _emit(event)
   }
   _buffer.length = 0
-  _emit = e => subject.next(e)
   _getIsEnabled = getIsEnabled
-  _getIsTracking = getIsTracking
+  _getTrackStack = getTrackStack
 }
 
 const isEnabled = () => _getIsEnabled?.() ?? false
@@ -244,9 +263,15 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
 // Re-export for constructor injection
 export { createId, observableIdMap }
 
-export const decorateOperatorFun = <T extends Function>(operator_fun: T, name = operator_fun.name): T => {
+export const decorateOperatorFun = <T extends Function>(
+  operator_fun: T,
+  name = operator_fun.name,
+  options?: { tags?: string[] },
+): T => {
   const decorated = {
     [name]: (...args: any[]) => {
+      const prevTags = _tagContext
+      _tagContext = options?.tags ?? []
       const id = createId()
       emit({
         type: "operator-fun-call",
@@ -260,6 +285,7 @@ export const decorateOperatorFun = <T extends Function>(operator_fun: T, name = 
         type: "operator-fun-call-return",
         id,
       })
+      _tagContext = prevTags
       return out
     },
   }[name]
@@ -268,9 +294,12 @@ export const decorateOperatorFun = <T extends Function>(operator_fun: T, name = 
   return decorated as unknown as T
 }
 
-export const decorateCreate = <T extends Function>(fun: T, name = fun.name): T => {
+export const decorateCreate = <T extends Function>(fun: T, name = fun.name, options?: { tags?: string[] }): T => {
   const decorated = (...args: any[]) => {
+    const prevTags = _tagContext
+    _tagContext = options?.tags ?? []
     const out = fun(...args)
+    _tagContext = prevTags
     emit({
       type: "factory-call-return",
       observable: out,

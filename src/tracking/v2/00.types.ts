@@ -13,10 +13,21 @@ import { BehaviorSubject } from "rxjs/internal/BehaviorSubject"
 import { Observable } from "rxjs/internal/Observable"
 import { Subject } from "rxjs/internal/Subject"
 import { filter, scan, startWith } from "rxjs/operators"
-import { isTracking, track } from "./01_helpers"
 import { bootstrap } from "./01.patch-observable"
 
-export { track }
+// Separate untracked isEnabled state for tracking control
+export const isEnabled$ = new BehaviorSubject(false)
+
+/** Temporarily disable tracking for internal operations */
+export function __withNoTrack<T>(fn: () => T): T {
+  const prev = isEnabled$.value
+  isEnabled$.next(false)
+  try {
+    return fn()
+  } finally {
+    isEnabled$.next(prev)
+  }
+}
 
 type Prettify<T> = { [K in keyof T]: T[K] } & NonNullable<unknown>
 
@@ -51,16 +62,24 @@ export type ObservableEvent =
       | { type: "unsubscribe-call"; args: any[]; index: number }
       | { type: "unsubscribe-call-return" }
     ))
+  // HMR track events
+  | { type: "track-call"; id: string }
+  | { type: "track-call-return"; id: string }
+  | { type: "track-update"; id: string; entity_id: string }
 
 export const _observableEvents$ = new Subject<ObservableEvent>()
 
 // Bootstrap the late-bound emitter after module initialization completes
 // Using queueMicrotask to defer until after all module-level code runs
-queueMicrotask(() => bootstrap(_observableEvents$, () => state$.value.isEnabled, isTracking))
+queueMicrotask(() =>
+  bootstrap(_observableEvents$, () => isEnabled$.value, () => state$.value.stack.hmr_track),
+)
 
 type Hmm = {
   // Unified observable entity (collapse Subject/BehaviorSubject/creation ops)
-  observable: {}
+  observable: {
+    obs_ref?: WeakRef<Observable<any>> // live ref for id → observable lookup
+  }
   // Operator factory call with bound args
   operator_fun: {}
   // Operator usage in pipe (references operator_fun)
@@ -92,6 +111,7 @@ type Hmm = {
     is_function: boolean
     value?: unknown // for primitives (number, string, boolean, null)
     fn_source?: string // function source code (dev mode only)
+    fn_ref?: WeakRef<Function> // live fn ref for HMR swap
   }
   // Arg function execution (dynamic observable creation)
   arg_call: {
@@ -107,14 +127,24 @@ type Hmm = {
     type: "next" | "error" | "complete"
     value?: any
   }
+  // HMR track - separate layer for hot module replacement
+  hmr_track: {
+    entity_type: "operator_fun" | "observable" | "pipe"
+    entity_id: string // FK → current entity (MUTABLE on HMR)
+    parent_track_id?: string // tree structure for nesting
+    index: number // position in parent scope
+    version: number // bumps on HMR
+    prev_entity_ids: string[] // orphaned entities, awaiting GC
+  }
 }
 
 type Improved = {
-  [K in keyof Hmm]: Prettify<Hmm[K] & { id: string; created_at: number; name?: string; created_at_end?: number }>
+  [K in keyof Hmm]: Prettify<
+    Hmm[K] & { id: string; created_at: number; name?: string; created_at_end?: number; tags?: string[] }
+  >
 }
 
 export type State = {
-  isEnabled: boolean
   owner_id: string
   stack: { [K in keyof Improved]: Improved[K][] }
   store: { [K in keyof Improved]: Record<string, Improved[K]> }
@@ -154,10 +184,7 @@ class EasierBS<T extends {}> extends BehaviorSubject<T> {
     const [, forceUpdate] = useState(0)
 
     useEffect(() => {
-      const prev = isTracking()
-      track(false)
       const sub = this.subscribe(() => forceUpdate(n => n + 1))
-      track(prev)
       return () => sub.unsubscribe()
     }, [])
 
@@ -166,7 +193,6 @@ class EasierBS<T extends {}> extends BehaviorSubject<T> {
 }
 
 export const state$ = new EasierBS<State>({
-  isEnabled: false,
   owner_id: "",
   rel: [],
   stack: {
@@ -178,6 +204,7 @@ export const state$ = new EasierBS<State>({
     arg: [],
     arg_call: [],
     send: [],
+    hmr_track: [],
   },
   store: {
     observable: {},
@@ -188,10 +215,11 @@ export const state$ = new EasierBS<State>({
     arg: {},
     arg_call: {},
     send: {},
+    hmr_track: {},
   },
 })
 
-export const observableEventsEnabled$ = _observableEvents$.pipe(filter(() => state$.value.isEnabled))
+export const observableEventsEnabled$ = _observableEvents$.pipe(filter(() => isEnabled$.value))
 
 type EntityKey = keyof Improved
 

@@ -1,6 +1,6 @@
 import { set } from "lodash"
 import { isObservable } from "rxjs"
-import { _observableEvents$, type State } from "./00.types"
+import { _observableEvents$, state$, type State } from "./00.types"
 import { createId, now, observableIdMap } from "./01_helpers"
 
 const MAX_DEPTH = 10
@@ -23,6 +23,7 @@ export function findArgs(value: unknown, path = "$args", depth = 0, rootVal: any
   // Function - create arg entity with is_function: true
   if (isFunction(value)) {
     const arg_id = createId()
+    const fn_ref = new WeakRef(value)
     args.push({
       id: arg_id,
       created_at: now(),
@@ -30,16 +31,19 @@ export function findArgs(value: unknown, path = "$args", depth = 0, rootVal: any
       is_function: true,
       owner_id: "", // Set by caller
       fn_source: value.toString(),
+      fn_ref,
     })
-    set(rootVal, path, (...args: any[]) => {
+    set(rootVal, path, (...callArgs: any[]) => {
       const id = createId()
       _observableEvents$.next({
         type: "arg-call",
         id,
         arg_id,
-        args,
+        args: callArgs,
       })
-      const out = value(...args)
+      // Look up fn_ref from state$ at call time so HMR can swap it
+      const fn = state$.value.store.arg[arg_id]?.fn_ref?.deref()
+      const out = fn ? fn(...callArgs) : undefined
       _observableEvents$.next({
         type: "arg-call-return",
         id,
