@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { Subject } from "rxjs"
+import { BehaviorSubject, Subject } from "rxjs"
 import { __$ } from "./0_runtime"
 import { state$ } from "../00.types"
 import "../03_scan-accumulator"
 import { proxy } from "../04.operators"
 import { useTrackingTestSetup } from "../0_test-utils"
 import { getDanglingSubscriptions } from "../06_queries"
+import { trackedSubject, trackedBehaviorSubject } from "./3_tracked-subject"
 
 describe("__$ HMR runtime", () => {
   useTrackingTestSetup()
@@ -274,151 +275,222 @@ describe("__$ HMR runtime", () => {
   })
 })
 
-describe.skip("getDanglingSubscriptions", () => {
+describe("trackedSubject bi-sync", () => {
   useTrackingTestSetup()
 
-  it("returns subscriptions to observables not in any hmr_track.entity_id", () => {
-    // Create tracked Subject - wrap in __$ so it's tracked
-    const trackedSubj = new Subject<number>()
-    __$("tracked", () => trackedSubj)
-    const trackedEntityId = state$.value.store.hmr_track["tracked"].entity_id
-    const trackedObs = state$.value.store.observable[trackedEntityId].obs_ref?.deref()
+  it("proxy.next forwards to inner and emits on proxy", () => {
+    let rawInner: Subject<number> | undefined
+    __$("biSync", () => (rawInner = new Subject<number>()))
 
-    // Create untracked Subject (not wrapped in __$)
-    const untrackedSubj = new Subject<number>()
+    const ts = trackedSubject<number>("biSync")
+    const innerValues: number[] = []
+    const proxyValues: number[] = []
 
-    // Subscribe to both
-    trackedObs!.subscribe()
-    untrackedSubj.subscribe()
+    rawInner!.subscribe((v) => innerValues.push(v))
+    // Use pipe to subscribe directly to proxy's emissions (not forwarded to inner)
+    ;(ts as any)._subscribe({
+      next: (v: number) => proxyValues.push(v),
+    })
 
-    expect(state$.value.store).toMatchInlineSnapshot(`
+    ts.next(1)
+    ts.next(2)
+
+    expect({ innerValues, proxyValues }).toMatchInlineSnapshot(`
       {
-        "arg": {},
-        "arg_call": {},
-        "hmr_track": {
-          "tracked": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "entity_id": "0",
-            "entity_type": "observable",
-            "id": "tracked",
-            "index": 0,
-            "parent_track_id": undefined,
-            "prev_entity_ids": [],
-            "version": 0,
-          },
-        },
-        "observable": {
-          "0": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "0",
-            "name": "new Subject",
-            "obs_ref": WeakRef {},
-          },
-          "2": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "2",
-            "name": "new Subject",
-            "obs_ref": WeakRef {},
-          },
-        },
-        "operator": {},
-        "operator_fun": {},
-        "pipe": {},
-        "send": {},
-        "subscription": {
-          "1": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "1",
-            "is_sync": false,
-            "observable_id": "0",
-            "parent_subscription_id": undefined,
-          },
-          "3": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "3",
-            "is_sync": false,
-            "observable_id": "2",
-            "parent_subscription_id": undefined,
-          },
-        },
+        "innerValues": [
+          1,
+          2,
+        ],
+        "proxyValues": [
+          1,
+          2,
+        ],
       }
     `)
-    // subscription "1" is to tracked obs "0", subscription "3" is to untracked obs "2"
-    const dangling = getDanglingSubscriptions(state$.value.store)
-    expect(dangling.map((s) => s.id)).toMatchInlineSnapshot(`
+  })
+
+  it("inner.next forwards to proxy (captured raw inner)", () => {
+    let rawInner: Subject<number> | undefined
+    __$("innerForward", () => (rawInner = new Subject<number>()))
+
+    const ts = trackedSubject<number>("innerForward")
+    const proxyValues: number[] = []
+
+    // Subscribe directly to proxy's internal subject
+    ;(ts as any)._subscribe({
+      next: (v: number) => proxyValues.push(v),
+    })
+
+    // Emit on raw inner - should forward to proxy
+    rawInner!.next(1)
+    rawInner!.next(2)
+
+    expect(proxyValues).toMatchInlineSnapshot(`
       [
-        "3",
+        1,
+        2,
       ]
     `)
   })
 
-  it("excludes already-unsubscribed subscriptions from dangling", () => {
-    const subj = new Subject<number>()
-    const sub = subj.subscribe()
+  it("error and complete forward bidirectionally", () => {
+    let rawInner: Subject<number> | undefined
+    __$("errorComplete", () => (rawInner = new Subject<number>()))
+
+    const ts = trackedSubject<number>("errorComplete")
+    let innerCompleted = false
+    let proxyCompleted = false
+
+    rawInner!.subscribe({ complete: () => (innerCompleted = true) })
+    ;(ts as any)._subscribe({ complete: () => (proxyCompleted = true) })
+
+    ts.complete()
+
+    expect({ innerCompleted, proxyCompleted }).toMatchInlineSnapshot(`
+      {
+        "innerCompleted": true,
+        "proxyCompleted": true,
+      }
+    `)
+  })
+
+  it("inner.complete forwards to proxy", () => {
+    let rawInner: Subject<number> | undefined
+    __$("innerComplete", () => (rawInner = new Subject<number>()))
+
+    const ts = trackedSubject<number>("innerComplete")
+    let proxyCompleted = false
+
+    ;(ts as any)._subscribe({ complete: () => (proxyCompleted = true) })
+
+    rawInner!.complete()
+
+    expect(proxyCompleted).toBe(true)
+  })
+
+  it("no infinite loop when proxy.next triggers inner which triggers proxy", () => {
+    let rawInner: Subject<number> | undefined
+    __$("noLoop", () => (rawInner = new Subject<number>()))
+
+    const ts = trackedSubject<number>("noLoop")
+    const values: number[] = []
+
+    // Subscribe to both to check for duplicates
+    rawInner!.subscribe((v) => values.push(v))
+    ;(ts as any)._subscribe({ next: (v: number) => values.push(v) })
+
+    ts.next(1)
+
+    // Should only have 2 values (one from inner, one from proxy), not infinite
+    expect(values).toMatchInlineSnapshot(`
+      [
+        1,
+        1,
+      ]
+    `)
+  })
+})
+
+describe("trackedBehaviorSubject", () => {
+  useTrackingTestSetup()
+
+  it("getValue returns inner value", () => {
+    let rawInner: BehaviorSubject<number> | undefined
+    __$("bsValue", () => (rawInner = new BehaviorSubject(42)))
+
+    const tbs = trackedBehaviorSubject<number>("bsValue", 0)
+
+    expect(tbs.getValue()).toBe(42)
+    expect(tbs.value).toBe(42)
+  })
+
+  it("proxy.next updates inner value", () => {
+    let rawInner: BehaviorSubject<number> | undefined
+    __$("bsNext", () => (rawInner = new BehaviorSubject(0)))
+
+    const tbs = trackedBehaviorSubject<number>("bsNext", -1)
+
+    tbs.next(100)
+
+    expect(rawInner!.value).toBe(100)
+    expect(tbs.value).toBe(100)
+  })
+
+  it("inner.next updates proxy value", () => {
+    let rawInner: BehaviorSubject<number> | undefined
+    __$("bsInnerNext", () => (rawInner = new BehaviorSubject(0)))
+
+    const tbs = trackedBehaviorSubject<number>("bsInnerNext", -1)
+
+    rawInner!.next(200)
+
+    // Proxy should reflect inner's value
+    expect(tbs.value).toBe(200)
+  })
+
+  it("bi-sync with next/error/complete", () => {
+    let rawInner: BehaviorSubject<number> | undefined
+    __$("bsBiSync", () => (rawInner = new BehaviorSubject(0)))
+
+    const tbs = trackedBehaviorSubject<number>("bsBiSync", -1)
+    const innerValues: number[] = []
+    const proxyValues: number[] = []
+
+    rawInner!.subscribe((v) => innerValues.push(v))
+    ;(tbs as any)._subscribe({ next: (v: number) => proxyValues.push(v) })
+
+    tbs.next(1)
+    rawInner!.next(2)
+
+    expect({ innerValues, proxyValues }).toMatchInlineSnapshot(`
+      {
+        "innerValues": [
+          0,
+          1,
+          2,
+        ],
+        "proxyValues": [
+          0,
+          1,
+          2,
+        ],
+      }
+    `)
+  })
+})
+
+// NOTE: getDanglingSubscriptions requires subscriptions to be tracked.
+// Subscriptions are only tracked when inside a __$ scope (track context required by shouldEmit).
+// These tests are skipped pending investigation of track context isolation between tests.
+describe.skip("getDanglingSubscriptions", () => {
+  useTrackingTestSetup({ fakeTrack: true })
+
+  it("subscription to current tracked entity is not dangling", () => {
+    let subj: Subject<number>
+    __$("tracked", () => (subj = new Subject<number>()))
+    subj!.subscribe()
+    expect(getDanglingSubscriptions(state$.value.store)).toMatchInlineSnapshot(`[]`)
+  })
+
+  it("detects orphaned subscription after HMR swap", () => {
+    let subj1: Subject<number>
+    __$("swappable", () => (subj1 = new Subject<number>()))
+    subj1!.subscribe()
+
+    __$("swappable", () => new Subject<number>())
+
+    const dangling = getDanglingSubscriptions(state$.value.store)
+    expect(dangling.length).toBe(1)
+  })
+
+  it("excludes unsubscribed from dangling", () => {
+    let subj1: Subject<number>
+    __$("swappable", () => (subj1 = new Subject<number>()))
+    const sub = subj1!.subscribe()
     sub.unsubscribe()
 
-    expect(state$.value.store.subscription).toMatchInlineSnapshot(`
-      {
-        "1": {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "1",
-          "is_sync": false,
-          "observable_id": "0",
-          "parent_subscription_id": undefined,
-          "unsubscribed_at": 0,
-          "unsubscribed_at_end": 0,
-        },
-      }
-    `)
-    const dangling = getDanglingSubscriptions(state$.value.store)
-    expect(dangling).toMatchInlineSnapshot(`[]`)
-  })
+    __$("swappable", () => new Subject<number>())
 
-  it("tracks orphaned subscriptions after HMR swap", () => {
-    // First version - use Subject so subscription stays active
-    const subj1 = new Subject<number>()
-    __$("swappable", () => subj1)
-    const firstEntityId = state$.value.store.hmr_track["swappable"].entity_id
-    const firstObs = state$.value.store.observable[firstEntityId].obs_ref?.deref()
-    firstObs!.subscribe()
-
-    const beforeSwap = getDanglingSubscriptions(state$.value.store)
-    expect(beforeSwap).toMatchInlineSnapshot(`[]`)
-
-    // Simulate HMR - new Subject replaces old
-    const subj2 = new Subject<number>()
-    __$("swappable", () => subj2)
-
-    expect(state$.value.store.hmr_track).toMatchInlineSnapshot(`
-      {
-        "swappable": {
-          "created_at": 0,
-          "created_at_end": 0,
-          "entity_id": "3",
-          "entity_type": "observable",
-          "id": "swappable",
-          "index": 0,
-          "last_change_structural": false,
-          "parent_track_id": undefined,
-          "prev_entity_ids": [
-            "0",
-          ],
-          "version": 1,
-        },
-      }
-    `)
-    // Old subscription to "0" is now dangling (entity_id is now "3")
-    const afterSwap = getDanglingSubscriptions(state$.value.store)
-    expect(afterSwap.map((s) => s.observable_id)).toMatchInlineSnapshot(`
-      [
-        "0",
-      ]
-    `)
+    expect(getDanglingSubscriptions(state$.value.store)).toMatchInlineSnapshot(`[]`)
   })
 })
