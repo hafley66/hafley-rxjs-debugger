@@ -28,25 +28,32 @@ describe("trackedObservable", () => {
   })
 
   it("switches source on HMR re-execution", () => {
-    const source1$ = __$("app:counter$", () => new Subject<number>())
+    // Capture raw inner Subjects via side effect
+    let rawSource1$!: Subject<number>
+    let rawSource2$!: Subject<number>
+
+    const wrapper1$ = __$("app:counter$", () => (rawSource1$ = new Subject<number>()))
 
     const tracked$ = trackedObservable<number>("app:counter$")
     const values: number[] = []
     const sub = tracked$.subscribe(v => values.push(v))
 
-    source1$.next(1)
+    rawSource1$.next(1)
     expect(values).toEqual([1])
 
     // HMR re-execution - same location, new Subject
-    const source2$ = __$("app:counter$", () => new Subject<number>())
+    const wrapper2$ = __$("app:counter$", () => (rawSource2$ = new Subject<number>()))
 
-    // Old source orphaned - emissions don't reach tracked$
-    source1$.next(999)
+    // Wrappers are same stable reference
+    expect(wrapper1$).toBe(wrapper2$)
+
+    // Old RAW source orphaned - emissions don't reach tracked$
+    rawSource1$.next(999)
     expect(values).toEqual([1])
 
-    // New source works
-    source2$.next(2)
-    source2$.next(3)
+    // New RAW source works
+    rawSource2$.next(2)
+    rawSource2$.next(3)
     expect(values).toEqual([1, 2, 3])
 
     sub.unsubscribe()

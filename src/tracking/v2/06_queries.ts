@@ -84,6 +84,17 @@ export function getArgCallForObs(store: Store, obsId: string) {
   return Object.values(store.arg_call).find(ac => ac.observable_id === obsId)
 }
 
+// === HMR Queries ===
+
+// Get dangling subscriptions (subscribed to observables no longer tracked)
+// These are subscriptions to orphaned observables that won't receive HMR updates
+export function getDanglingSubscriptions(store: Store) {
+  const liveObsIds = new Set(Object.values(store.hmr_track).map(t => t.entity_id))
+  return Object.values(store.subscription).filter(
+    s => !liveObsIds.has(s.observable_id) && !s.unsubscribed_at,
+  )
+}
+
 // === Marble Diagram Queries ===
 
 type Subscription = Store["subscription"][string]

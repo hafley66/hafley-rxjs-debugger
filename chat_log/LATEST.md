@@ -1,1 +1,1 @@
-2026-01-02.4.stable-ref-hmr.md
+2026-01-02.7.tracked-subject-bisync.md
