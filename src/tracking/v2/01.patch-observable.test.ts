@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { isEnabled$, state$ } from "./00.types"
-import { resetIdCounter, setNow } from "./01_helpers"
+import { describe, expect, it } from "vitest"
+import { state$ } from "./00.types"
+import { setNow } from "./01_helpers"
 import "./03_scan-accumulator"
 import { BehaviorSubject, lastValueFrom, Observable, Subject, tap } from "rxjs"
 import { proxy } from "./04.operators"
@@ -18,22 +18,10 @@ import {
   getTopLevelSubscriptions,
   isRuntimeObs,
 } from "./06_queries"
+import { useTrackingTestSetup } from "./0_test-utils"
 
 describe("Class proxy events", () => {
-  beforeEach(() => {
-    resetIdCounter()
-    setNow(0)
-    state$.reset()
-    isEnabled$.next(true)
-    state$.value.stack.hmr_track.push({ id: "test", created_at: 0 } as any)
-  })
-
-  afterEach(() => {
-    state$.value.stack.hmr_track.pop()
-    resetIdCounter()
-    setNow(null)
-    isEnabled$.next(false)
-  })
+  useTrackingTestSetup(true)
 
   it("from is workable", async () => {
     setNow(1000)
@@ -1289,20 +1277,7 @@ describe("Class proxy events", () => {
 })
 
 describe("06_queries", () => {
-  beforeEach(() => {
-    resetIdCounter()
-    setNow(0)
-    state$.reset()
-    isEnabled$.next(true)
-    state$.value.stack.hmr_track.push({ id: "test", created_at: 0 } as any)
-  })
-
-  afterEach(() => {
-    state$.value.stack.hmr_track.pop()
-    resetIdCounter()
-    setNow(null)
-    isEnabled$.next(false)
-  })
+  useTrackingTestSetup(true)
 
   it("getRootObservables excludes operator targets and runtime obs", () => {
     proxy

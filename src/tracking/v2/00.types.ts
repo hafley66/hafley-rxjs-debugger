@@ -135,6 +135,7 @@ type Hmm = {
     index: number // position in parent scope
     version: number // bumps on HMR
     prev_entity_ids: string[] // orphaned entities, awaiting GC
+    stable_ref?: WeakRef<Observable<any>> // trackedObservable wrapper returned across HMR
   }
 }
 

@@ -1,25 +1,14 @@
 import { Subject } from "rxjs"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { _observableEvents$, isEnabled$, state$ } from "../00.types"
-import { resetIdCounter, setNow } from "../01_helpers"
+import { describe, expect, it } from "vitest"
+import { state$ } from "../00.types"
 import "../03_scan-accumulator"
 import { proxy } from "../04.operators"
+import { useTrackingTestSetup } from "../0_test-utils"
 import { __$ } from "./0_runtime"
 import { trackedObservable } from "./2_tracked-observable"
 
 describe("trackedObservable", () => {
-  beforeEach(() => {
-    resetIdCounter()
-    setNow(0)
-    state$.reset()
-    isEnabled$.next(true)
-  })
-
-  afterEach(() => {
-    resetIdCounter()
-    setNow(null)
-    isEnabled$.next(false)
-  })
+  useTrackingTestSetup()
 
   it("subscribes to tracked observable and receives emissions", () => {
     const source$ = __$("app:source$", () => new Subject<number>())
@@ -38,7 +27,7 @@ describe("trackedObservable", () => {
     sub.unsubscribe()
   })
 
-  it("switches source when track-update changes entity_id", () => {
+  it("switches source on HMR re-execution", () => {
     const source1$ = __$("app:counter$", () => new Subject<number>())
 
     const tracked$ = trackedObservable<number>("app:counter$")
@@ -48,18 +37,10 @@ describe("trackedObservable", () => {
     source1$.next(1)
     expect(values).toEqual([1])
 
-    // Create second source via __$ so it gets registered
-    const source2$ = __$("app:counter$:v2", () => new Subject<number>())
-    const source2Id = state$.value.store.hmr_track["app:counter$:v2"]?.entity_id
+    // HMR re-execution - same location, new Subject
+    const source2$ = __$("app:counter$", () => new Subject<number>())
 
-    // Simulate HMR swap
-    _observableEvents$.next({
-      type: "track-update",
-      id: "app:counter$",
-      entity_id: source2Id!,
-    })
-
-    // Old source ignored
+    // Old source orphaned - emissions don't reach tracked$
     source1$.next(999)
     expect(values).toEqual([1])
 
@@ -83,13 +64,8 @@ describe("trackedObservable", () => {
       },
     })
 
-    // Swap - use __$ so source2$ is registered
-    const source2$ = __$("app:data$:v2", () => new Subject<number>())
-    _observableEvents$.next({
-      type: "track-update",
-      id: "app:data$",
-      entity_id: state$.value.store.hmr_track["app:data$:v2"]?.entity_id!,
-    })
+    // HMR re-execution - same location, new Subject
+    __$("app:data$", () => new Subject<number>())
 
     expect(completed).toBe(false)
     expect(sub.closed).toBe(false)
@@ -124,5 +100,50 @@ describe("trackedObservable", () => {
     input$.next(3)
 
     expect(values).toEqual([10, 20, 30])
+  })
+
+  it("forwards complete when no swap has occurred", () => {
+    const source$ = __$("app:finite$", () => new Subject<number>())
+
+    const tracked$ = trackedObservable<number>("app:finite$")
+    let completed = false
+    tracked$.subscribe({
+      next: () => {},
+      complete: () => {
+        completed = true
+      },
+    })
+
+    // Complete the source - should forward since no swap
+    source$.complete()
+    expect(completed).toBe(true)
+  })
+
+  it("forwards complete after HMR swap - preserves RxJS semantics", () => {
+    const source1$ = __$("app:hmr$", () => new Subject<number>())
+
+    const tracked$ = trackedObservable<number>("app:hmr$")
+    let completed = false
+    const values: number[] = []
+    tracked$.subscribe({
+      next: v => values.push(v),
+      complete: () => {
+        completed = true
+      },
+    })
+
+    source1$.next(1)
+
+    // HMR swap - same location, new factory result triggers re-execution detection
+    const source2$ = __$("app:hmr$", () => new Subject<number>())
+
+    source2$.next(2)
+    source2$.next(3)
+
+    // Complete propagates naturally - don't break RxJS semantics
+    source2$.complete()
+
+    expect(completed).toBe(true)
+    expect(values).toEqual([1, 2, 3])
   })
 })

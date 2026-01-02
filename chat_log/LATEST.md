@@ -1,1 +1,1 @@
-2026-01-02.2.track-update-hmr-planning.md
+2026-01-02.4.stable-ref-hmr.md

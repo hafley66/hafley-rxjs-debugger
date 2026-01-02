@@ -1,30 +1,15 @@
 import { cleanup, render } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest"
 import { page } from "vitest/browser"
-import { isEnabled$, state$ } from "../00.types"
-import { resetIdCounter, setNow } from "../01_helpers"
 
 import "../03_scan-accumulator"
 import { proxy } from "../04.operators"
+import { useTrackingTestSetup } from "../0_test-utils"
 
 import { DebuggerGrid } from "./0_DebuggerGrid"
 
 describe("DebuggerGrid", () => {
-  beforeEach(() => {
-    resetIdCounter()
-    setNow(0)
-    state$.reset()
-    isEnabled$.next(true)
-    state$.value.stack.hmr_track.push({ id: "test", created_at: 0 } as any)
-  })
-
-  afterEach(() => {
-    state$.value.stack.hmr_track.pop()
-    resetIdCounter()
-    setNow(null)
-    isEnabled$.next(false)
-    cleanup()
-  })
+  useTrackingTestSetup({ fakeTrack: true, cleanup })
 
   it("renders switchMap with dynamic observables", async () => {
     // Create observable chain

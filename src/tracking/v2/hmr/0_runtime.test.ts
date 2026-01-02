@@ -1,23 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest"
 import { __$ } from "./0_runtime"
-import { isEnabled$, state$ } from "../00.types"
-import { resetIdCounter, setNow } from "../01_helpers"
+import { state$ } from "../00.types"
 import "../03_scan-accumulator"
 import { proxy } from "../04.operators"
+import { useTrackingTestSetup } from "../0_test-utils"
 
 describe("__$ HMR runtime", () => {
-  beforeEach(() => {
-    resetIdCounter()
-    setNow(0)
-    state$.reset()
-    isEnabled$.next(true)
-  })
-
-  afterEach(() => {
-    resetIdCounter()
-    setNow(null)
-    isEnabled$.next(false)
-  })
+  useTrackingTestSetup()
 
   it("tracks observable creation", () => {
     __$("test:obs", () => proxy.of(1, 2, 3))
@@ -96,7 +85,7 @@ describe("__$ HMR runtime", () => {
       {
         "created_at": 0,
         "created_at_end": 0,
-        "entity_id": "5",
+        "entity_id": "6",
         "entity_type": "observable",
         "id": "test:fn",
         "index": 0,
