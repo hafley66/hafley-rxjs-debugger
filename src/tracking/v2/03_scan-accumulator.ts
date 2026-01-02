@@ -1,6 +1,35 @@
+import type { Observable } from "rxjs"
 import { observableEventsEnabled$, type State, state$ } from "./00.types"
 import { now, observableIdMap } from "./01_helpers"
 import { crawlArgs } from "./02_arg-crawler"
+
+// Structural serialization for HMR change detection
+function isObservable(val: any): val is Observable<any> {
+  return val && typeof val === "object" && typeof val.subscribe === "function"
+}
+
+function serializeValue(val: any): string {
+  if (typeof val === "function") return "fn"
+  if (isObservable(val)) {
+    const id = observableIdMap.get(val)
+    return id ? `$ref[${id}]` : "$ref[?]"
+  }
+  if (Array.isArray(val)) return `[${val.map(serializeValue).join(",")}]`
+  if (val && typeof val === "object") {
+    const entries = Object.entries(val)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}:${serializeValue(v)}`)
+    return `{${entries.join(",")}}`
+  }
+  if (typeof val === "string") return `"${val}"`
+  if (val === null) return "null"
+  if (val === undefined) return "undefined"
+  return String(val)
+}
+
+function serializeArgs(args: any[]): string {
+  return args.map(serializeValue).join(",")
+}
 
 export const state$$ = observableEventsEnabled$.pipe(
   state$.scanEager((state, event) => {
@@ -26,7 +55,9 @@ export const state$$ = observableEventsEnabled$.pipe(
       case "factory-call-return": {
         const obsId = observableIdMap.get(event.observable) ?? "unknown"
         if (state.store.observable[obsId]) {
-          state.store.observable[obsId].name = event.name // override "new Observable" with "from"/"of"/etc
+          // Serialize args into name for structural hash
+          const argsStr = serializeArgs(event.args)
+          state.store.observable[obsId].name = `${event.name}(${argsStr})`
         }
         const args = crawlArgs(event.args, obsId)
         for (const arg of args) {
@@ -150,10 +181,11 @@ export const state$$ = observableEventsEnabled$.pipe(
       }
 
       case "operator-fun-call": {
+        const argsStr = serializeArgs(event.args)
         state.store.operator_fun[event.id] = {
           created_at: now(),
           id: event.id,
-          name: event.name,
+          name: `${event.name}(${argsStr})`,
         }
         state.stack.operator_fun.push(state.store.operator_fun[event.id]!)
         // Crawl args to find and wrap functions (delay, project, etc.)
@@ -193,6 +225,13 @@ export const state$$ = observableEventsEnabled$.pipe(
         if (!val) break
         val.created_at_end = now()
         val.target_observable_id = event.target_observable_id
+        // Chain observable names: target.name = source.name + "." + opFun.name
+        const sourceObs = state.store.observable[val.source_observable_id]
+        const targetObs = state.store.observable[val.target_observable_id]
+        const opFun = state.store.operator_fun[val.operator_fun_id]
+        if (targetObs && opFun) {
+          targetObs.name = `${sourceObs?.name ?? "?"}.${opFun.name}`
+        }
         break
       }
 
@@ -254,10 +293,26 @@ export const state$$ = observableEventsEnabled$.pipe(
       }
       case "track-call-return": {
         const entity = state.stack.hmr_track.pop()
-        if (!entity) break
+        if (!entity || !entity.entity_id) break
         entity.created_at_end = now()
-        // Only store if an entity was captured
-        if (entity.entity_id) {
+
+        const existing = state.store.hmr_track[entity.id]
+        if (existing && existing.entity_id !== entity.entity_id) {
+          // HMR re-execution detected - compare structural hashes
+          const oldObs = state.store.observable[existing.entity_id]
+          const newObs = state.store.observable[entity.entity_id]
+          const structureChanged = oldObs?.name !== newObs?.name
+
+          // Update in place
+          existing.prev_entity_ids.push(existing.entity_id)
+          existing.entity_id = entity.entity_id
+          existing.entity_type = entity.entity_type
+          existing.version += 1
+          // Store whether this was a structural change (for future optimization)
+          // structureChanged: true = need full swap, false = fn-only hot swap
+          ;(existing as any).last_change_structural = structureChanged
+        } else if (!existing) {
+          // First time - store it
           state.store.hmr_track[entity.id] = entity
         }
         break

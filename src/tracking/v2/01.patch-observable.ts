@@ -96,18 +96,18 @@ function normalizeObserver(args: any[]): { next: (v: any) => void; error: (e: an
 export function patchObservable(Observable: { prototype: any; create?: any }) {
   const proto = Observable.prototype
 
-  // Override lift to skip tracking - internal RxJS plumbing creates tons of intermediate Observables
-  const originalLift = proto.lift
-  proto.lift = function liftNoTrack(operator: any) {
-    if (_getIsEnabled) {
-      const original = _getIsEnabled
-      _getIsEnabled = () => false
-      const result = originalLift.call(this, operator)
-      _getIsEnabled = original
-      return result
-    }
-    return originalLift.call(this, operator)
-  }
+  // TODO: lift creates lots of intermediate observables - may need to re-enable if noisy
+  // const originalLift = proto.lift
+  // proto.lift = function liftNoTrack(operator: any) {
+  //   if (_getIsEnabled) {
+  //     const original = _getIsEnabled
+  //     _getIsEnabled = () => false
+  //     const result = originalLift.call(this, operator)
+  //     _getIsEnabled = original
+  //     return result
+  //   }
+  //   return originalLift.call(this, operator)
+  // }
 
   // Override static create to skip tracking - deprecated but still used internally
   if (Observable.create) {

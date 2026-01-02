@@ -100,9 +100,12 @@ describe("__$ HMR runtime", () => {
         "entity_type": "observable",
         "id": "test:fn",
         "index": 0,
+        "last_change_structural": true,
         "parent_track_id": undefined,
-        "prev_entity_ids": [],
-        "version": 0,
+        "prev_entity_ids": [
+          "0",
+        ],
+        "version": 1,
       }
     `)
   })
@@ -140,5 +143,64 @@ describe("__$ HMR runtime", () => {
         "version": 0,
       }
     `)
+  })
+
+  it("detects fn-only change when structure same (last_change_structural: false)", () => {
+    // First execution
+    __$("test:hmr", () => proxy.of(1, 2, 3).pipe(proxy.map((x) => x * 2)))
+    const entity1 = state$.value.store.hmr_track["test:hmr"].entity_id
+    const obs1Name = state$.value.store.observable[entity1]?.name
+    expect(state$.value.store.hmr_track["test:hmr"].version).toBe(0)
+
+    // Simulate HMR: same structure, different fn body
+    __$("test:hmr", () => proxy.of(1, 2, 3).pipe(proxy.map((x) => x * 3)))
+    const track2 = state$.value.store.hmr_track["test:hmr"]
+    const obs2Name = state$.value.store.observable[track2.entity_id]?.name
+
+    expect(track2.version).toBe(1)
+    expect(track2.prev_entity_ids).toContain(entity1)
+    // Same structure: of(1,2,3).map(fn) → of(1,2,3).map(fn)
+    expect(obs1Name).toBe(obs2Name) // Both should serialize the same
+    expect((track2 as any).last_change_structural).toBe(false)
+  })
+
+  it("detects structural change when operator added (last_change_structural: true)", () => {
+    // First execution
+    __$("test:structural", () => proxy.of(1, 2, 3).pipe(proxy.map((x) => x * 2)))
+    const entity1 = state$.value.store.hmr_track["test:structural"].entity_id
+    const obs1Name = state$.value.store.observable[entity1]?.name
+
+    // Simulate HMR: added filter operator
+    __$("test:structural", () =>
+      proxy.of(1, 2, 3).pipe(
+        proxy.map((x) => x * 2),
+        proxy.filter((x) => x > 2)
+      )
+    )
+
+    const track = state$.value.store.hmr_track["test:structural"]
+    const obs2Name = state$.value.store.observable[track.entity_id]?.name
+
+    expect({ obs1Name, obs2Name, version: track.version, structural: (track as any).last_change_structural }).toMatchInlineSnapshot(`
+      {
+        "obs1Name": "of(1,2,3).map(fn)",
+        "obs2Name": "of(1,2,3).map(fn).filter(fn)",
+        "structural": true,
+        "version": 1,
+      }
+    `)
+  })
+
+  it("detects structural change when primitive arg changes", () => {
+    // First execution
+    __$("test:primitive", () => proxy.of(1, 2, 3).pipe(proxy.take(5)))
+
+    // Simulate HMR: changed take count
+    __$("test:primitive", () => proxy.of(1, 2, 3).pipe(proxy.take(10)))
+
+    const track = state$.value.store.hmr_track["test:primitive"]
+    expect(track.version).toBe(1)
+    // Different structure: take(5) → take(10)
+    expect((track as any).last_change_structural).toBe(true)
   })
 })

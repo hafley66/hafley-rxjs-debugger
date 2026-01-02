@@ -387,14 +387,28 @@ describe("Class proxy events", () => {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "0",
-            "name": "from",
+            "name": "from($ref[0])",
+            "obs_ref": WeakRef {},
+          },
+          "28": {
+            "created_at": 1000,
+            "created_at_end": 1000,
+            "id": "28",
+            "name": "from($ref[0]).repeat({count:2,delay:fn})",
+            "obs_ref": WeakRef {},
+          },
+          "30": {
+            "created_at": 1000,
+            "created_at_end": 1000,
+            "id": "30",
+            "name": "from($ref[0]).repeat({count:2,delay:fn}).tap({complete:fn,error:fn,next:fn})",
             "obs_ref": WeakRef {},
           },
           "47": {
             "created_at": 2000,
             "created_at_end": 2000,
             "id": "47",
-            "name": "innerFrom",
+            "name": "innerFrom($ref[47])",
             "obs_ref": WeakRef {},
           },
         },
@@ -425,25 +439,25 @@ describe("Class proxy events", () => {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "13",
-            "name": "repeat",
+            "name": "repeat({count:2,delay:fn})",
           },
           "16": {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "16",
-            "name": "repeat",
+            "name": "repeat({count:2,delay:fn})",
           },
           "19": {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "19",
-            "name": "tap",
+            "name": "tap({complete:fn,error:fn,next:fn})",
           },
           "23": {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "23",
-            "name": "tap",
+            "name": "tap({complete:fn,error:fn,next:fn})",
           },
         },
         "pipe": {
@@ -504,17 +518,17 @@ describe("Class proxy events", () => {
     `)
 
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
-      "from                                                                                                                                                                                                                     // #0
-        .pipe(                                                                                                                                                                                                                 // 
-          repeat({ delay: () => proxy.of(true), count: 2 }),                                                                                                                                                                   // #28
-          tap({ next: () => {
+      "from($ref[0])                                                                                                                                                                                                                                            // #0
+        .pipe(                                                                                                                                                                                                                                                 // 
+          repeat({count:2,delay:fn})({ delay: () => proxy.of(true), count: 2 }),                                                                                                                                                                               // #28
+          tap({complete:fn,error:fn,next:fn})({ next: () => {
                   (0,setNow)(index++ * 1e3);
                 }, complete: () => {
                   (0,setNow)(index++ * 1e3);
                 }, error: () => {
                   (0,setNow)(index++ * 1e3);
                 } }),  // #30
-        )                                                                                                                                                                                                                      // -> #30"
+        )                                                                                                                                                                                                                                                      // -> #30"
     `)
   })
 
@@ -770,6 +784,27 @@ describe("Class proxy events", () => {
             "name": "new Observable",
             "obs_ref": WeakRef {},
           },
+          "22": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "22",
+            "name": "new Observable.map(fn)",
+            "obs_ref": WeakRef {},
+          },
+          "24": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "24",
+            "name": "new Observable.map(fn).filter(fn)",
+            "obs_ref": WeakRef {},
+          },
+          "26": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "26",
+            "name": "new Observable.map(fn).filter(fn).scan(fn,0)",
+            "obs_ref": WeakRef {},
+          },
         },
         "operator": {
           "21": {
@@ -808,43 +843,43 @@ describe("Class proxy events", () => {
             "created_at": 5000,
             "created_at_end": 5000,
             "id": "10",
-            "name": "scan",
+            "name": "scan(fn,0)",
           },
           "13": {
             "created_at": 5000,
             "created_at_end": 5000,
             "id": "13",
-            "name": "scan",
+            "name": "scan(fn,0)",
           },
           "16": {
             "created_at": 5000,
             "created_at_end": 5000,
             "id": "16",
-            "name": "scanInternals",
+            "name": "scanInternals(fn,0,true,true)",
           },
           "2": {
             "created_at": 3000,
             "created_at_end": 3000,
             "id": "2",
-            "name": "map",
+            "name": "map(fn)",
           },
           "4": {
             "created_at": 3000,
             "created_at_end": 3000,
             "id": "4",
-            "name": "map",
+            "name": "map(fn)",
           },
           "6": {
             "created_at": 4000,
             "created_at_end": 4000,
             "id": "6",
-            "name": "filter",
+            "name": "filter(fn)",
           },
           "8": {
             "created_at": 4000,
             "created_at_end": 4000,
             "id": "8",
-            "name": "filter",
+            "name": "filter(fn)",
           },
         },
         "pipe": {
@@ -862,14 +897,69 @@ describe("Class proxy events", () => {
     `)
 
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
-      "new Observable                                                   // #0
-        .pipe(                                                         // 
-          map((it2) => it2 * 2),                                       // #22
-          filter((it2) => it2 !== 0),                                  // #24
-          scan((sum, it2) => {
+      "new Observable                                                         // #0
+        .pipe(                                                               // 
+          map(fn)((it2) => it2 * 2),                                         // #22
+          filter(fn)((it2) => it2 !== 0),                                    // #24
+          scan(fn,0)((sum, it2) => {
               return sum + it2;
             }, 0),  // #26
-        )                                                              // -> #26"
+        )                                                                    // -> #26"
+    `)
+  })
+
+  it("pipe output observable should be in store", () => {
+    const source$ = proxy.of(1, 2, 3)
+    const piped$ = source$.pipe(proxy.map((x) => x * 2))
+
+    const pipeEntry = Object.values(state$.value.store.pipe)[0]
+    const operatorEntry = Object.values(state$.value.store.operator)[0]
+
+    const sourceObs = state$.value.store.observable[operatorEntry!.source_observable_id]
+    const targetObs = state$.value.store.observable[operatorEntry!.target_observable_id]
+    const pipeOutputObs = state$.value.store.observable[pipeEntry!.observable_id]
+
+    expect({ pipeEntry, operatorEntry, sourceObs, targetObs, pipeOutputObs }).toMatchInlineSnapshot(`
+      {
+        "operatorEntry": {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "18",
+          "index": 0,
+          "operator_fun_id": "14",
+          "pipe_id": "13",
+          "source_observable_id": "0",
+          "target_observable_id": "19",
+        },
+        "pipeEntry": {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "13",
+          "observable_id": "19",
+          "parent_observable_id": "0",
+        },
+        "pipeOutputObs": {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "19",
+          "name": "of(1,2,3).map(fn)",
+          "obs_ref": WeakRef {},
+        },
+        "sourceObs": {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "0",
+          "name": "of(1,2,3)",
+          "obs_ref": WeakRef {},
+        },
+        "targetObs": {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "19",
+          "name": "of(1,2,3).map(fn)",
+          "obs_ref": WeakRef {},
+        },
+      }
     `)
   })
 
@@ -880,10 +970,10 @@ describe("Class proxy events", () => {
       .subscribe()
 
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
-      "of                                                           // #0
-        .pipe(                                                     // 
-          switchMap((val, index) => proxy.of(index + "/" + val)),  // #11
-        )                                                          // -> #11"
+      "of(5)                                                            // #0
+        .pipe(                                                         // 
+          switchMap(fn)((val, index) => proxy.of(index + "/" + val)),  // #11
+        )                                                              // -> #11"
     `)
 
     expect(state$.value.store).toMatchInlineSnapshot(`
@@ -1036,14 +1126,21 @@ describe("Class proxy events", () => {
             "created_at": 0,
             "created_at_end": 0,
             "id": "0",
-            "name": "of",
+            "name": "of(5)",
+            "obs_ref": WeakRef {},
+          },
+          "11": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "id": "11",
+            "name": "of(5).switchMap(fn)",
             "obs_ref": WeakRef {},
           },
           "17": {
             "created_at": 0,
             "created_at_end": 0,
             "id": "17",
-            "name": "innerFrom",
+            "name": "innerFrom($ref[17])",
             "obs_ref": WeakRef {},
           },
         },
@@ -1064,13 +1161,13 @@ describe("Class proxy events", () => {
             "created_at": 0,
             "created_at_end": 0,
             "id": "6",
-            "name": "switchMap",
+            "name": "switchMap(fn)",
           },
           "8": {
             "created_at": 0,
             "created_at_end": 0,
             "id": "8",
-            "name": "switchMap",
+            "name": "switchMap(fn)",
           },
         },
         "pipe": {
@@ -1119,12 +1216,12 @@ describe("Class proxy events", () => {
     shared$.subscribe()
 
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
-      "innerFrom     // #0
-        .pipe(      // 
-          share(),  // #13
-        )           // -> #13
-      new Subject   // #15
-      new Subject   // #29"
+      "innerFrom($ref[0])  // #0
+        .pipe(            // 
+          share()(),      // #13
+        )                 // -> #13
+      new Subject         // #15
+      new Subject         // #29"
     `)
   })
 
@@ -1133,14 +1230,14 @@ describe("Class proxy events", () => {
     const b$ = proxy.of(2).pipe(proxy.filter(x => x > 0))
 
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
-      "of                         // #0
-        .pipe(                   // 
-          map((x) => x * 2),     // #11
-        )                        // -> #11
-      of                         // #12
-        .pipe(                   // 
-          filter((x) => x > 0),  // #23
-        )                        // -> #23"
+      "of(1)                          // #0
+        .pipe(                       // 
+          map(fn)((x) => x * 2),     // #11
+        )                            // -> #11
+      of(2)                          // #12
+        .pipe(                       // 
+          filter(fn)((x) => x > 0),  // #23
+        )                            // -> #23"
     `)
   })
 
@@ -1175,18 +1272,18 @@ describe("Class proxy events", () => {
       }
     `)
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
-      "of                         // #0
-        .pipe(                   // 
-          map((x) => x * 2),     // #11
-        )                        // -> #11
-      of                         // #12
-        .pipe(                   // 
-          filter((x) => x > 0),  // #23
-        )                        // -> #23
-      #11                        // 
-        .pipe(                   // 
-          switchMap(() => b$),   // #30
-        )                        // -> #30"
+      "of(1)                          // #0
+        .pipe(                       // 
+          map(fn)((x) => x * 2),     // #11
+        )                            // -> #11
+      of(2)                          // #12
+        .pipe(                       // 
+          filter(fn)((x) => x > 0),  // #23
+        )                            // -> #23
+      #11                            // 
+        .pipe(                       // 
+          switchMap(fn)(() => b$),   // #30
+        )                            // -> #30"
     `)
   })
 })
@@ -1218,7 +1315,7 @@ describe("06_queries", () => {
       [
         {
           "id": "0",
-          "name": "of",
+          "name": "of(5)",
         },
       ]
     `)
@@ -1367,7 +1464,7 @@ describe("06_queries", () => {
       [
         {
           "id": "17",
-          "name": "innerFrom",
+          "name": "innerFrom($ref[17])",
         },
       ]
     `)
