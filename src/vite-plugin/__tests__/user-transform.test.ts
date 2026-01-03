@@ -564,5 +564,62 @@ b$.subscribe(console.log)`
         `)
       })
     })
+
+    describe("class this reference patterns", () => {
+      it("skips this.subscribe() inside class methods", () => {
+        const code = `import { BehaviorSubject } from 'rxjs'
+class EasierBS<T> extends BehaviorSubject<T> {
+  use$(): T {
+    const sub = this.subscribe(() => console.log(this.value))
+    return this.value
+  }
+}`
+        const result = transform(code)
+        expect(result).toMatchSnapshot()
+      })
+
+      it("skips this.pipe() inside class methods", () => {
+        const code = `import { BehaviorSubject, Observable } from 'rxjs'
+import { map } from 'rxjs/operators'
+class EasierBS<T> extends BehaviorSubject<T> {
+  doubled$(): Observable<number> {
+    return this.pipe(map(x => x * 2))
+  }
+}`
+        const result = transform(code)
+        expect(result).toMatchSnapshot()
+      })
+
+      it("skips nested pipes in returned functions", () => {
+        const code = `import { BehaviorSubject, Observable } from 'rxjs'
+import { scan } from 'rxjs/operators'
+class EasierBS<T> extends BehaviorSubject<T> {
+  scanEager<Next>(accumulator: (sum: T, next: Next) => T) {
+    return (source$: Observable<Next>) => {
+      return source$.pipe(scan((_sum, next) => accumulator(this.value, next), this.value))
+    }
+  }
+}`
+        const result = transform(code)
+        expect(result).toMatchSnapshot()
+      })
+
+      it("does NOT wrap extended Subject classes (runtime handles via constructor patch)", () => {
+        const code = `import { BehaviorSubject } from 'rxjs'
+class EasierBS<T> extends BehaviorSubject<T> {}
+const state$ = new EasierBS({ count: 0 })`
+        const result = transform(code)
+        // Extended classes are tracked at runtime via Observable constructor patch
+        // Transform only detects known RxJS classes: Subject, BehaviorSubject, etc.
+        expect(result).toMatchSnapshot()
+      })
+
+      it("DOES wrap direct BehaviorSubject at module level", () => {
+        const code = `import { BehaviorSubject } from 'rxjs'
+const state$ = new BehaviorSubject({ count: 0 })`
+        const result = transform(code)
+        expect(result).toMatchSnapshot()
+      })
+    })
   })
 })

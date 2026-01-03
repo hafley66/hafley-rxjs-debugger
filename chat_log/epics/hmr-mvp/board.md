@@ -14,7 +14,9 @@
 | 2. Swap Mechanism | ✅ Done | 12 tests |
 | 3. Lifecycle Management | ✅ Done | 11 tests |
 | 4. Cleanup & Gaps | 🟡 In Progress | 3 skipped |
-| 5. Vite AST Transform | ✅ Done | 36 tests |
+| 5. Vite AST Transform | ✅ Done | 41 tests |
+| 5.1 Hierarchical Paths | ⬜ Planned | 0 tests |
+| 5.2 Extended Scope | ⬜ Future | 0 tests |
 | 6. E2E Playwright | ⬜ Not Started | 0 tests |
 
 **Current**: 121 passing, 3 skipped
@@ -38,7 +40,7 @@
 
 **Files created**:
 - `src/vite-plugin/0_user-transform.ts` - Main transform logic (~300 lines)
-- `src/vite-plugin/__tests__/user-transform.test.ts` - 27 tests with inline snapshots
+- `src/vite-plugin/__tests__/user-transform.test.ts` - 36 tests with inline snapshots
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -47,6 +49,39 @@
 | C. Observable Wrapping | __$() for declarations | ✅ |
 | D. Subscription Wrapping | __$.sub() for subscribes | ✅ |
 | E. Testing | Transform test suite | ✅ |
+| F. Test gap fixes | Aliased/namespace imports, class props | ✅ |
+
+**Related docs**:
+- [test-gaps.md](./vite-transform/test-gaps.md) - Test coverage analysis
+- [nested-scope-design.md](./vite-transform/nested-scope-design.md) - Hierarchical path tracking (planned)
+
+### Phase 5.1: Hierarchical Path Tracking ⬜
+
+**Goal**: Structural paths for nested observables (switchMaps, subscribe callbacks)
+
+**Approach**: Hybrid - transform stays module-scope, runtime derives paths from stack
+
+**Design**: [nested-scope-design.md](./vite-transform/nested-scope-design.md)
+
+| Task | Status |
+|------|--------|
+| Add schema fields (structural_path, parent_operator) | ⬜ |
+| Enhance __$ location derivation in runtime | ⬜ |
+| Add structural_path in accumulator track-call-return | ⬜ |
+| Add hierarchical path test scenarios | ⬜ |
+
+### Phase 5.2: Extended Scope Detection ⬜ (Future)
+
+**Goal**: Handle class methods, callback-scope observables, repeated keys
+
+**Design**: [nested-scope-design.md](./vite-transform/nested-scope-design.md#future-extended-scope-detection-tbd)
+
+| Task | Status |
+|------|--------|
+| Add `is_module_scope` flag to track entities | ⬜ |
+| Class decoration marking (config or static marker) | ⬜ |
+| Callback-scope lifecycle (ephemeral, parent-linked) | ⬜ |
+| Handle `this.subscribe()` / `this.pipe()` patterns | ⬜ |
 
 ### Phase 6: E2E Validation
 

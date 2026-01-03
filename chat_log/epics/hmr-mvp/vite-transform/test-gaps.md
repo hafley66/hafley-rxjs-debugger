@@ -28,6 +28,35 @@
 | **Class method bodies** | Should skip, similar to function bodies | ⬜ |
 | **Subscribe inside callbacks** | Runtime handles but worth testing skip | ⬜ |
 | **Mixed observable + subscription** | Combined scenario | ⬜ |
+| **`this.subscribe()` in class methods** | Extended BehaviorSubject pattern | ⬜ |
+| **`this.pipe()` in class methods** | Custom operators on `this` | ⬜ |
+
+### Class `this` reference patterns
+
+Common in extended Subject classes:
+
+```typescript
+class EasierBS<T> extends BehaviorSubject<T> {
+  use$(): T {
+    useEffect(() => {
+      const sub = this.subscribe(() => ...)  // <-- this.subscribe
+      return () => sub.unsubscribe()
+    }, [])
+    return this.value
+  }
+
+  scanEager<Next>(accumulator: (sum: T, next: Next) => T) {
+    return (source$: Observable<Next>) => {
+      return source$.pipe(...)  // <-- nested pipe, should skip (inside function)
+    }
+  }
+}
+```
+
+**Expected behavior:**
+- `this.subscribe()` inside class method → Should be skipped (inside function body)
+- `this.pipe()` inside returned function → Should be skipped (inside function body)
+- Class extending Subject → Constructor should work if `new EasierBS(value)` at module scope
 
 ---
 
