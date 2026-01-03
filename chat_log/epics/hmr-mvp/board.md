@@ -14,10 +14,10 @@
 | 2. Swap Mechanism | ✅ Done | 12 tests |
 | 3. Lifecycle Management | ✅ Done | 11 tests |
 | 4. Cleanup & Gaps | 🟡 In Progress | 3 skipped |
-| 5. Vite AST Transform | ⬜ Not Started | 5 tests (rxjs only) |
+| 5. Vite AST Transform | ✅ Done | 36 tests |
 | 6. E2E Playwright | ⬜ Not Started | 0 tests |
 
-**Current**: 85 passing, 3 skipped
+**Current**: 121 passing, 3 skipped
 
 ---
 
@@ -34,17 +34,19 @@
 | Implement is_sync detection for sync observables | P3 | [is-sync-detection.md](./tasks/is-sync-detection.md) |
 | Track per-parent index (all index:0 currently) | P3 | [track-index.md](./tasks/track-index.md) |
 
-### Phase 5: Vite AST Transform
+### Phase 5: Vite AST Transform ✅
 
-**See sub-epic**: [vite-transform/board.md](./vite-transform/board.md)
+**Files created**:
+- `src/vite-plugin/0_user-transform.ts` - Main transform logic (~300 lines)
+- `src/vite-plugin/__tests__/user-transform.test.ts` - 27 tests with inline snapshots
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| A. Foundation | AST patterns, file detection | ⬜ |
-| B. Module Wrapper | Inject start/end | ⬜ |
-| C. Observable Wrapping | __$() for declarations | ⬜ |
-| D. Subscription Wrapping | __$.sub() for subscribes | ⬜ |
-| E. Testing | Transform test suite | ⬜ |
+| A. Foundation | AST patterns, file detection | ✅ |
+| B. Module Wrapper | Inject start/end | ✅ |
+| C. Observable Wrapping | __$() for declarations | ✅ |
+| D. Subscription Wrapping | __$.sub() for subscribes | ✅ |
+| E. Testing | Transform test suite | ✅ |
 
 ### Phase 6: E2E Validation
 

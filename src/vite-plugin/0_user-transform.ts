@@ -54,9 +54,15 @@ const KNOWN_SUBJECT_CLASSES = new Set([
 ])
 
 // Collect imports from rxjs modules
-function collectRxjsImports(ast: any): { creators: Set<string>; subjects: Set<string>; lastImportEnd: number } {
+function collectRxjsImports(ast: any): {
+  creators: Set<string>
+  subjects: Set<string>
+  namespaces: Set<string>
+  lastImportEnd: number
+} {
   const creators = new Set<string>()
   const subjects = new Set<string>()
+  const namespaces = new Set<string>()
   let lastImportEnd = 0
 
   for (const stmt of ast.body || []) {
@@ -71,19 +77,25 @@ function collectRxjsImports(ast: any): { creators: Set<string>; subjects: Set<st
 
       for (const spec of stmt.specifiers || []) {
         if (spec.type === "ImportSpecifier") {
-          const name = spec.local?.name || spec.imported?.name
-          if (KNOWN_RXJS_CREATORS.has(name)) {
-            creators.add(name)
+          // For aliased imports: import { of as createObs }
+          // imported.name = "of", local.name = "createObs"
+          const importedName = spec.imported?.name
+          const localName = spec.local?.name || importedName
+          if (KNOWN_RXJS_CREATORS.has(importedName)) {
+            creators.add(localName)
           }
-          if (KNOWN_SUBJECT_CLASSES.has(name)) {
-            subjects.add(name)
+          if (KNOWN_SUBJECT_CLASSES.has(importedName)) {
+            subjects.add(localName)
           }
+        } else if (spec.type === "ImportNamespaceSpecifier") {
+          // import * as rx from 'rxjs'
+          namespaces.add(spec.local?.name)
         }
       }
     }
   }
 
-  return { creators, subjects, lastImportEnd }
+  return { creators, subjects, namespaces, lastImportEnd }
 }
 
 // FNV-1a hash for stable keys
@@ -121,16 +133,46 @@ function generateKey(prefix: string, node: any): string {
 }
 
 // AST detection helpers - now take imported symbols as context
-function isRxjsCreatorCall(node: any, importedCreators: Set<string>): boolean {
+function isRxjsCreatorCall(node: any, importedCreators: Set<string>, namespaces: Set<string>): boolean {
   if (node.type !== "CallExpression") return false
   const callee = node.callee
-  return callee?.type === "Identifier" && importedCreators.has(callee.name)
+
+  // Direct call: of(1)
+  if (callee?.type === "Identifier" && importedCreators.has(callee.name)) {
+    return true
+  }
+
+  // Namespace call: rx.of(1)
+  if (callee?.type === "MemberExpression" &&
+      callee.object?.type === "Identifier" &&
+      namespaces.has(callee.object.name) &&
+      callee.property?.type === "Identifier" &&
+      KNOWN_RXJS_CREATORS.has(callee.property.name)) {
+    return true
+  }
+
+  return false
 }
 
-function isSubjectConstruction(node: any, importedSubjects: Set<string>): boolean {
+function isSubjectConstruction(node: any, importedSubjects: Set<string>, namespaces: Set<string>): boolean {
   if (node.type !== "NewExpression") return false
   const callee = node.callee
-  return callee?.type === "Identifier" && importedSubjects.has(callee.name)
+
+  // Direct: new Subject()
+  if (callee?.type === "Identifier" && importedSubjects.has(callee.name)) {
+    return true
+  }
+
+  // Namespace: new rx.Subject()
+  if (callee?.type === "MemberExpression" &&
+      callee.object?.type === "Identifier" &&
+      namespaces.has(callee.object.name) &&
+      callee.property?.type === "Identifier" &&
+      KNOWN_SUBJECT_CLASSES.has(callee.property.name)) {
+    return true
+  }
+
+  return false
 }
 
 function isPipeCall(node: any): boolean {
@@ -147,8 +189,8 @@ function isSubscribeCall(node: any): boolean {
   return prop === "subscribe" || prop === "forEach"
 }
 
-function isObservableExpression(node: any, creators: Set<string>, subjects: Set<string>): boolean {
-  return isRxjsCreatorCall(node, creators) || isSubjectConstruction(node, subjects) || isPipeCall(node)
+function isObservableExpression(node: any, creators: Set<string>, subjects: Set<string>, namespaces: Set<string>): boolean {
+  return isRxjsCreatorCall(node, creators, namespaces) || isSubjectConstruction(node, subjects, namespaces) || isPipeCall(node)
 }
 
 // Skip rules - don't transform inside these contexts
@@ -191,6 +233,7 @@ function collectTargets(
   ast: any,
   creators: Set<string>,
   subjects: Set<string>,
+  namespaces: Set<string>,
 ): TransformTarget[] {
   const targets: TransformTarget[] = []
 
@@ -201,13 +244,27 @@ function collectTargets(
     if (node.type === "VariableDeclarator" &&
         node.id?.type === "Identifier" &&
         node.init &&
-        isObservableExpression(node.init, creators, subjects)) {
+        isObservableExpression(node.init, creators, subjects, namespaces)) {
       targets.push({
         type: "observable",
         varName: node.id.name,
         start: node.init.start,
         end: node.init.end,
         node: node.init,
+      })
+    }
+
+    // Class properties: class Store { data$ = of(1) }
+    if (node.type === "PropertyDefinition" &&
+        node.key?.type === "Identifier" &&
+        node.value &&
+        isObservableExpression(node.value, creators, subjects, namespaces)) {
+      targets.push({
+        type: "observable",
+        varName: node.key.name,
+        start: node.value.start,
+        end: node.value.end,
+        node: node.value,
       })
     }
 
@@ -305,16 +362,16 @@ export function transformUserCode(
   }
 
   // Collect RxJS imports - only wrap symbols actually imported from rxjs
-  const { creators, subjects, lastImportEnd } = collectRxjsImports(ast)
+  const { creators, subjects, namespaces, lastImportEnd } = collectRxjsImports(ast)
 
   // If no rxjs imports found, nothing to transform
-  if (creators.size === 0 && subjects.size === 0) {
+  if (creators.size === 0 && subjects.size === 0 && namespaces.size === 0) {
     // But we might still have .subscribe() calls - those don't need import verification
     // So we continue with empty sets for creators/subjects
   }
 
   // Collect targets using verified imports
-  const targets = collectTargets(ast, creators, subjects)
+  const targets = collectTargets(ast, creators, subjects, namespaces)
   if (targets.length === 0) return null
 
   // Apply transforms

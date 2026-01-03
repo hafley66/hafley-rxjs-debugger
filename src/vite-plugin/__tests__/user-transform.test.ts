@@ -392,5 +392,177 @@ const x$ = of(1)`
         expect(result.map.mappings.length).toBeGreaterThan(0)
       })
     })
+
+    describe("high priority gaps", () => {
+      it("handles aliased imports", () => {
+        const code = `import { of as createObs } from 'rxjs'
+const x$ = createObs(1)`
+
+        const result = transform(code)
+
+        expect(result).not.toBeNull()
+        expect(result!.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { of as createObs } from 'rxjs'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+          const x$ = __$("x$:8006b97c", () => createObs(1))
+          __$.end()
+          "
+        `)
+      })
+
+      it("handles namespace imports", () => {
+        const code = `import * as rx from 'rxjs'
+const x$ = rx.of(1)`
+
+        const result = transform(code)
+
+        expect(result).not.toBeNull()
+        expect(result!.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import * as rx from 'rxjs'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+          const x$ = __$("x$:c191b330", () => rx.of(1))
+          __$.end()
+          "
+        `)
+      })
+
+      it("handles export declarations", () => {
+        const code = `import { of } from 'rxjs'
+export const x$ = of(1)`
+
+        const result = transform(code)!
+
+        expect(result.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { of } from 'rxjs'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+          export const x$ = __$("x$:17fa50f4", () => of(1))
+          __$.end()
+          "
+        `)
+      })
+
+      it("handles class properties", () => {
+        const code = `import { of } from 'rxjs'
+class Store {
+  data$ = of(1)
+}`
+
+        const result = transform(code)
+
+        expect(result).not.toBeNull()
+        expect(result!.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { of } from 'rxjs'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+          class Store {
+            data$ = __$("data$:17fa50f4", () => of(1))
+          }
+          __$.end()
+          "
+        `)
+      })
+
+      it("handles let declarations", () => {
+        const code = `import { of } from 'rxjs'
+let x$ = of(1)`
+
+        const result = transform(code)!
+
+        expect(result.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { of } from 'rxjs'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+          let x$ = __$("x$:17fa50f4", () => of(1))
+          __$.end()
+          "
+        `)
+      })
+
+      it("handles var declarations", () => {
+        const code = `import { of } from 'rxjs'
+var x$ = of(1)`
+
+        const result = transform(code)!
+
+        expect(result.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { of } from 'rxjs'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+          var x$ = __$("x$:17fa50f4", () => of(1))
+          __$.end()
+          "
+        `)
+      })
+
+      it("handles chained pipe().pipe()", () => {
+        const code = `import { of } from 'rxjs'
+import { map, filter } from 'rxjs/operators'
+const x$ = source$.pipe(map(x => x)).pipe(filter(x => x > 0))`
+
+        const result = transform(code)!
+
+        expect(result.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { of } from 'rxjs'
+          import { map, filter } from 'rxjs/operators'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+          const x$ = __$("x$:8a09f177", () => source$.pipe(map(x => x)).pipe(filter(x => x > 0)))
+          __$.end()
+          "
+        `)
+      })
+    })
+
+    describe("hash collision scenarios", () => {
+      it("handles two identical blocks with same content", () => {
+        const code = `import { of } from 'rxjs'
+const a$ = of(1)
+const b$ = of(1)`
+
+        const result = transform(code)!
+
+        // Same content = same hash, but different var names make unique keys
+        expect(result.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { of } from 'rxjs'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+          const a$ = __$("a$:17fa50f4", () => of(1))
+          const b$ = __$("b$:17fa50f4", () => of(1))
+          __$.end()
+          "
+        `)
+      })
+
+      it("handles subscriptions with identical content", () => {
+        const code = `import { of } from 'rxjs'
+a$.subscribe(console.log)
+b$.subscribe(console.log)`
+
+        const result = transform(code)!
+
+        // Both subs have same callback, need unique keys
+        expect(result.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { of } from 'rxjs'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+          __$.sub("sub:3969b488", () => a$.subscribe(console.log))
+          __$.sub("sub:e7c24907", () => b$.subscribe(console.log))
+          __$.end()
+          "
+        `)
+      })
+    })
   })
 })
