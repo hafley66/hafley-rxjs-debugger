@@ -221,25 +221,8 @@ describe("__$ HMR runtime", () => {
       })
     })
 
-    // Show event flow: count subscribe-call events and their observable_ids
-    const subscribeCalls = _eventBuffer
-      .filter((e): e is Extract<typeof e, { type: "subscribe-call" }> => e.type === "subscribe-call")
-      .map(e => ({ id: e.id, observable_id: e.observable_id }))
-
-    // Expected: 2 subscriptions (wrapper + inner of(1))
-    // Actual: 4 - why?
-    expect({
-      eventsAfterCreate,
-      subscribeCalls,
-      sendCount: sendsDuringCallback.length,
-      sends: sendsDuringCallback.map(s => ({
-        id: s.id,
-        subscription_id: s.subscription_id,
-        observable_id: s.observable_id,
-      })),
-      innerTrackId,
-      tracks: Object.keys(state$.value.store.hmr_track),
-    }).toMatchSnapshot()
+    // Snapshot events and store for clarity
+    expect({ events: _eventBuffer, store: state$.value.store }).toMatchSnapshot()
   })
 
   it("nested child $ tracker also gets subscription context", () => {

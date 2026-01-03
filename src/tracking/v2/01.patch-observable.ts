@@ -26,7 +26,9 @@ const PATCHED_UNSUB = Symbol("rxjs-debugger-patched-unsubscribe")
 
 // Events that don't require track context at emit time
 // - track-*: manage context itself
-// - send-*: filtered in accumulator based on origin track
+// - send-*: runtime events, filtered in accumulator
+// - subscribe-*: runtime events, gated by store check in patchedSubscribe
+// - unsubscribe-*: runtime events
 // - hmr-module-*: manage module context itself
 const UNTRACKED_EVENTS = new Set([
   "track-call",
@@ -34,6 +36,10 @@ const UNTRACKED_EVENTS = new Set([
   "track-update",
   "send-call",
   "send-call-return",
+  "subscribe-call",
+  "subscribe-call-return",
+  "unsubscribe-call",
+  "unsubscribe-call-return",
   "hmr-module-call",
   "hmr-module-call-return",
 ])

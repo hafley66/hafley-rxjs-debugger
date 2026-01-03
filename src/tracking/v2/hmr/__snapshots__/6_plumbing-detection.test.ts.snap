@@ -18,6 +18,26 @@ exports[`plumbing detection > captures event flow for tracked observable 1`] = `
       "type": "track-call-return",
     },
     {
+      "id": "3",
+      "observable_id": "2",
+      "type": "subscribe-call",
+    },
+    {
+      "id": "4",
+      "observable_id": "2",
+      "type": "subscribe-call",
+    },
+    {
+      "id": "4",
+      "observable_id": "2",
+      "type": "subscribe-call-return",
+    },
+    {
+      "id": "3",
+      "observable_id": "2",
+      "type": "subscribe-call-return",
+    },
+    {
       "id": "5",
       "observable_id": "2",
       "subscription_id": "4",
@@ -51,6 +71,10 @@ exports[`plumbing detection > captures event flow for tracked observable 1`] = `
     "constructor-call-return",
     "constructor-call-return",
     "track-call-return",
+    "subscribe-call",
+    "subscribe-call",
+    "subscribe-call-return",
+    "subscribe-call-return",
     "send-call",
     "send-call",
     "send-call-return",
@@ -61,8 +85,12 @@ exports[`plumbing detection > captures event flow for tracked observable 1`] = `
     "constructor-call-return",
     "constructor-call-return",
     "track-call-return",
+    "subscribe-call",
+    "subscribe-call",
+    "subscribe-call-return",
+    "subscribe-call-return",
   ],
-  "subscriptionCount": 0,
+  "subscriptionCount": 2,
   "track": {
     "created_at": 0,
     "created_at_end": 0,
@@ -91,7 +119,7 @@ exports[`plumbing detection > detects and skips wrapper→inner subscription 1`]
   "detection": {
     "innerSubExists": false,
     "innerSubShouldBeSkipped": true,
-    "wrapperSubExists": false,
+    "wrapperSubExists": true,
   },
   "eventSummary": [
     {
@@ -107,6 +135,26 @@ exports[`plumbing detection > detects and skips wrapper→inner subscription 1`]
     },
     {
       "type": "track-call-return",
+    },
+    {
+      "id": "3",
+      "observable_id": "2",
+      "type": "subscribe-call",
+    },
+    {
+      "id": "4",
+      "observable_id": "2",
+      "type": "subscribe-call",
+    },
+    {
+      "id": "4",
+      "observable_id": "2",
+      "type": "subscribe-call-return",
+    },
+    {
+      "id": "3",
+      "observable_id": "2",
+      "type": "subscribe-call-return",
     },
     {
       "id": "5",
@@ -142,6 +190,10 @@ exports[`plumbing detection > detects and skips wrapper→inner subscription 1`]
     "constructor-call-return",
     "constructor-call-return",
     "track-call-return",
+    "subscribe-call",
+    "subscribe-call",
+    "subscribe-call-return",
+    "subscribe-call-return",
     "send-call",
     "send-call",
     "send-call-return",
@@ -152,8 +204,12 @@ exports[`plumbing detection > detects and skips wrapper→inner subscription 1`]
     "constructor-call-return",
     "constructor-call-return",
     "track-call-return",
+    "subscribe-call",
+    "subscribe-call",
+    "subscribe-call-return",
+    "subscribe-call-return",
   ],
-  "subscriptionCount": 0,
+  "subscriptionCount": 2,
   "track": {
     "created_at": 0,
     "created_at_end": 0,
@@ -179,7 +235,20 @@ exports[`plumbing detection > detects and skips wrapper→inner subscription 1`]
 
 exports[`plumbing detection > verify subscription stack during inner subscribe 1`] = `
 {
-  "subscribeEventsAfter": [],
+  "subscribeEventsAfter": [
+    {
+      "id": "3",
+      "isInnerSub": false,
+      "isWrapperSub": true,
+      "observable_id": "2",
+    },
+    {
+      "id": "4",
+      "isInnerSub": false,
+      "isWrapperSub": true,
+      "observable_id": "2",
+    },
+  ],
   "subscribeEventsBefore": 0,
   "track": {
     "mutable_observable_id": "1",

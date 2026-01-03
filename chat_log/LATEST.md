@@ -1,1 +1,1 @@
-2026-01-03.7.plumbing-detection-refactor.md
+2026-01-03.8.store-based-tracking-refactor.md
