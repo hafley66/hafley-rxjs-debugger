@@ -1,5 +1,5 @@
 {
-  "name": "observable-tracker",
+  "name": "@hafley/rxjs-debugger",
   "version": "0.1.0",
   "description": "Observable tracking library with automatic memory leak detection",
   "type": "module",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./hmr": {
+      "types": "./src/tracking/v2/hmr/4_module-scope.ts",
+      "import": "./src/tracking/v2/hmr/4_module-scope.ts"
     }
   },
   "files": [

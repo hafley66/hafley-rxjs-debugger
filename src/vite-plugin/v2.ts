@@ -1,6 +1,7 @@
 import { createRequire } from "module"
 import path from "path"
 import type { Plugin, ResolvedConfig } from "rolldown-vite"
+import { shouldTransformUserCode, transformUserCode } from "./0_user-transform"
 
 const require = createRequire(import.meta.url)
 
@@ -15,6 +16,9 @@ type VitestConfig = ResolvedConfig & {
 export interface RxjsDebuggerPluginOptions {
   debug?: boolean
   patchModulePath?: string
+  hmrModulePath?: string
+  /** Transform user code to wrap observables/subscriptions. Default: true */
+  transformUserCode?: boolean
 }
 
 const IMPORT_PATCH = (patchPath: string) =>
@@ -30,10 +34,18 @@ const CONSTRUCTOR_START = `\nconst __id__ = __createId__();\n`
 const CONSTRUCTOR_END = `\n__observableIdMap__.set(this, __id__);\n__emit__({ type: "constructor-call-return", id: __id__, observable: this });\n`
 const PATCH_CALL = `\n__patchObservable__(Observable);\n`
 
+// oxc-parser types
+interface OxcParseResult {
+  program: any
+  errors: any[]
+}
+
 export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plugin {
-  const { debug = false, patchModulePath } = options
+  const { debug = false, patchModulePath, hmrModulePath, transformUserCode: enableUserTransform = true } = options
   let config: VitestConfig
   let resolvedPatchModulePath: string
+  let resolvedHmrModulePath: string
+  let parseSync: ((filename: string, code: string, options?: any) => OxcParseResult) | null = null
 
   const log = (...args: unknown[]) => {
     if (debug) console.log("[rxjs-debugger]", ...args)
@@ -48,12 +60,26 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
     configResolved(resolvedConfig) {
       config = resolvedConfig
       resolvedPatchModulePath = patchModulePath ?? path.resolve(config.root, "src/tracking/v2/01.patch-observable")
+      resolvedHmrModulePath = hmrModulePath ?? path.resolve(config.root, "src/tracking/v2/hmr/4_module-scope")
       log("configResolved:", {
         command: config.command,
         isProduction: config.isProduction,
         isBrowser: config.test?.browser?.enabled,
         resolvedPatchModulePath,
+        resolvedHmrModulePath,
       })
+    },
+
+    async buildStart() {
+      if (enableUserTransform) {
+        try {
+          const oxc = await import("oxc-parser")
+          parseSync = oxc.parseSync
+          log("oxc-parser loaded for user code transforms")
+        } catch {
+          console.warn("[rxjs-debugger] oxc-parser not available, user code transforms disabled")
+        }
+      }
     },
 
     resolveId(source) {
@@ -184,6 +210,17 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
           log("patchCreationTs result: SUCCESS for", fileName)
         }
         return result
+      }
+
+      // User code transform - wrap observables and subscriptions
+      if (enableUserTransform && parseSync && shouldTransformUserCode(cleanId)) {
+        const result = transformUserCode(code, cleanId, parseSync, {
+          hmrImport: resolvedHmrModulePath,
+        })
+        if (result) {
+          log("USER CODE transformed:", cleanId)
+          return result
+        }
       }
 
       return null
