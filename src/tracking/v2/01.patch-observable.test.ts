@@ -369,6 +369,7 @@ describe("Class proxy events", () => {
             "subscription_id": "32",
           },
         },
+        "hmr_module": {},
         "hmr_track": {},
         "observable": {
           "0": {
@@ -464,6 +465,7 @@ describe("Class proxy events", () => {
             "created_at_end": 5000,
             "id": "31",
             "is_sync": false,
+            "module_id": undefined,
             "observable_id": "30",
             "parent_subscription_id": undefined,
           },
@@ -472,6 +474,7 @@ describe("Class proxy events", () => {
             "created_at_end": 5000,
             "id": "32",
             "is_sync": false,
+            "module_id": undefined,
             "observable_id": "28",
             "parent_subscription_id": "31",
           },
@@ -480,6 +483,7 @@ describe("Class proxy events", () => {
             "created_at_end": 2000,
             "id": "33",
             "is_sync": false,
+            "module_id": undefined,
             "observable_id": "0",
             "parent_subscription_id": "32",
             "unsubscribed_at": 2000,
@@ -490,6 +494,7 @@ describe("Class proxy events", () => {
             "created_at_end": 5000,
             "id": "53",
             "is_sync": false,
+            "module_id": undefined,
             "observable_id": "47",
             "parent_subscription_id": "32",
           },
@@ -498,6 +503,7 @@ describe("Class proxy events", () => {
             "created_at_end": 5000,
             "id": "55",
             "is_sync": false,
+            "module_id": undefined,
             "observable_id": "0",
             "parent_subscription_id": "53",
           },
@@ -532,6 +538,7 @@ describe("Class proxy events", () => {
       {
         "arg": {},
         "arg_call": {},
+        "hmr_module": {},
         "hmr_track": {},
         "observable": {
           "0": {
@@ -763,6 +770,7 @@ describe("Class proxy events", () => {
           },
         },
         "arg_call": {},
+        "hmr_module": {},
         "hmr_track": {},
         "observable": {
           "0": {
@@ -1108,6 +1116,7 @@ describe("Class proxy events", () => {
             "subscription_id": "13",
           },
         },
+        "hmr_module": {},
         "hmr_track": {},
         "observable": {
           "0": {
@@ -1174,6 +1183,7 @@ describe("Class proxy events", () => {
             "created_at_end": 0,
             "id": "12",
             "is_sync": false,
+            "module_id": undefined,
             "observable_id": "11",
             "parent_subscription_id": undefined,
           },
@@ -1182,6 +1192,7 @@ describe("Class proxy events", () => {
             "created_at_end": 0,
             "id": "13",
             "is_sync": false,
+            "module_id": undefined,
             "observable_id": "0",
             "parent_subscription_id": "12",
           },
@@ -1190,6 +1201,7 @@ describe("Class proxy events", () => {
             "created_at_end": 0,
             "id": "23",
             "is_sync": false,
+            "module_id": undefined,
             "observable_id": "17",
             "parent_subscription_id": "13",
           },

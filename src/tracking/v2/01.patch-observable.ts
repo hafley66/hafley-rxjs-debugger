@@ -22,12 +22,15 @@ export const getTagContext = () => _tagContext
 // Events that don't require track context at emit time
 // - track-*: manage context itself
 // - send-*: filtered in accumulator based on origin track
+// - hmr-module-*: manage module context itself
 const UNTRACKED_EVENTS = new Set([
   "track-call",
   "track-call-return",
   "track-update",
   "send-call",
   "send-call-return",
+  "hmr-module-call",
+  "hmr-module-call-return",
 ])
 
 const shouldEmit = (eventType: string): boolean => {

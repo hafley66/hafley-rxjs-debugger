@@ -1,0 +1,169 @@
+import { Subject } from "rxjs"
+import { describe, expect, it } from "vitest"
+import { useTrackingTestSetup } from "../0_test-utils"
+import { state$ } from "../00.types"
+import { _rxjs_debugger_module_start } from "./4_module-scope"
+
+describe("ModuleScope", () => {
+  useTrackingTestSetup()
+
+  describe("_rxjs_debugger_module_start", () => {
+    it("creates hmr_module in store", () => {
+      const __$ = _rxjs_debugger_module_start("file:///a.ts")
+      __$.end()
+
+      const mod = state$.value.store.hmr_module["file:///a.ts"]
+      expect(mod).toMatchInlineSnapshot(`
+        {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "file:///a.ts",
+          "prev_keys": [],
+          "url": "file:///a.ts",
+          "version": 1,
+        }
+      `)
+    })
+
+    it("increments version on HMR reload", () => {
+      const url = `file:///version-test-${Date.now()}.ts`
+
+      // First load with Subject
+      const __$1 = _rxjs_debugger_module_start(url)
+      expect(state$.value.store.hmr_module[url]?.version).toBe(1)
+
+      __$1("obs", () => new Subject())
+      expect(state$.value.store.hmr_module[url]?.version).toBe(1)
+
+      __$1.end()
+      expect(state$.value.store.hmr_module[url]?.version).toBe(1)
+
+      // HMR reload
+      const __$2 = _rxjs_debugger_module_start(url)
+      expect(state$.value.store.hmr_module[url]?.version).toBe(2)
+
+      __$2("obs", () => new Subject())
+      expect(state$.value.store.hmr_module[url]?.version).toBe(2)
+
+      __$2.end()
+      expect(state$.value.store.hmr_module[url]?.version).toBe(2)
+    })
+
+    it("stamps module_id on hmr_track entities", () => {
+      const __$ = _rxjs_debugger_module_start("file:///c.ts")
+      __$("myObs", () => new Subject())
+      __$.end()
+
+      expect(state$.value.store.hmr_track["myObs"]?.module_id).toBe("file:///c.ts")
+    })
+  })
+
+  describe("nested keys", () => {
+    it("concatenates keys with colon delimiter", () => {
+      const __$ = _rxjs_debugger_module_start("file:///d.ts")
+      __$("outer", $ => {
+        $("inner", () => new Subject())
+      })
+      __$.end()
+
+      expect(state$.value.store.hmr_track["outer:inner"]).toBeDefined()
+      expect(state$.value.store.hmr_track["outer:inner"]?.module_id).toBe("file:///d.ts")
+    })
+
+    it("deeply nested keys work correctly", () => {
+      const __$ = _rxjs_debugger_module_start("file:///e.ts")
+      __$("a", $ => {
+        $("b", $ => {
+          $("c", () => new Subject())
+        })
+      })
+      __$.end()
+
+      expect(state$.value.store.hmr_track["a:b:c"]).toBeDefined()
+    })
+  })
+
+  describe("orphan detection", () => {
+    it("snapshots prev_keys on HMR reload", () => {
+      // First load - create obs1 and obs2
+      const __$1 = _rxjs_debugger_module_start("file:///f.ts")
+      __$1("obs1", () => new Subject())
+      __$1("obs2", () => new Subject())
+      __$1.end()
+
+      // At start of HMR reload, prev_keys should capture current keys
+      const __$2 = _rxjs_debugger_module_start("file:///f.ts")
+      // prev_keys set at hmr-module-call, before any tracks created this version
+      // After end(), prev_keys cleared
+      __$2("obs1", () => new Subject())
+      __$2.end()
+
+      // prev_keys cleared after processing
+      expect(state$.value.store.hmr_module["file:///f.ts"]?.prev_keys).toEqual([])
+    })
+
+    it("cleans up orphaned tracks: deletes from store and completes wrapper", () => {
+      // First load - create obs1 and obs2
+      const __$1 = _rxjs_debugger_module_start("file:///orphan-cleanup.ts")
+      const wrapper1 = __$1("orphan_obs1", () => new Subject())
+      const wrapper2 = __$1("orphan_obs2", () => new Subject())
+      __$1.end()
+
+      // Subscribe to wrapper2 to detect complete
+      let wrapper2Completed = false
+      wrapper2.subscribe({ complete: () => (wrapper2Completed = true) })
+
+      // Snapshot before HMR: both tracks exist
+      expect(Object.keys(state$.value.store.hmr_track).filter(k => k.startsWith("orphan_"))).toMatchInlineSnapshot(`
+        [
+          "orphan_obs1",
+          "orphan_obs2",
+        ]
+      `)
+
+      // HMR reload - only re-create obs1, orphan obs2
+      const __$2 = _rxjs_debugger_module_start("file:///orphan-cleanup.ts")
+      __$2("orphan_obs1", () => new Subject())
+      // orphan_obs2 NOT re-created
+      __$2.end()
+
+      // Snapshot after HMR: obs2 deleted, obs1 remains
+      expect(Object.keys(state$.value.store.hmr_track).filter(k => k.startsWith("orphan_"))).toMatchInlineSnapshot(`
+        [
+          "orphan_obs1",
+        ]
+      `)
+
+      // wrapper2 was completed (triggers watcher cleanup)
+      expect(wrapper2Completed).toMatchInlineSnapshot(`true`)
+    })
+  })
+
+  describe(".sub() wrapper", () => {
+    it("returns the subscription from factory", () => {
+      const __$ = _rxjs_debugger_module_start("file:///g.ts")
+      const subject$ = new Subject<number>()
+      const received: number[] = []
+
+      const sub = __$.sub("mySub", () => subject$.subscribe(v => received.push(v)))
+      __$.end()
+
+      subject$.next(1)
+      subject$.next(2)
+
+      expect(received).toEqual([1, 2])
+      expect(sub.closed).toBe(false)
+
+      sub.unsubscribe()
+      expect(sub.closed).toBe(true)
+    })
+  })
+
+  describe("module_id property", () => {
+    it("exposes module_id on scope", () => {
+      const __$ = _rxjs_debugger_module_start("file:///h.ts")
+      expect(__$.module_id).toBe("file:///h.ts")
+      __$.end()
+    })
+  })
+})

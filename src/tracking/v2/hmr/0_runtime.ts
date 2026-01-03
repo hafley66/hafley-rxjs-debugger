@@ -8,11 +8,27 @@
  * seamlessly receive values from new inner observable after HMR swap.
  */
 
-import { Observable, Subject } from "rxjs"
+import { BehaviorSubject, Observable, Subject } from "rxjs"
 import { __withNoTrack, state$ } from "../00.types"
 import { emit } from "../01.patch-observable"
 import { trackedObservable } from "./2_tracked-observable"
 import { trackedSubject } from "./3_tracked-subject"
+
+// Marker to identify our tracked wrappers
+export const TRACKED_MARKER = Symbol("rxjs-debugger-tracked")
+
+// Only treat direct Subject/BehaviorSubject instances as Subjects
+// AnonymousSubject (from .pipe()) should be treated as Observable
+// Also exclude our own tracked wrappers
+function isRealSubject(val: any): val is Subject<any> {
+  if (val == null) return false
+  if ((val as any)[TRACKED_MARKER]) return false // Already tracked
+  return val.constructor === Subject || val.constructor === BehaviorSubject
+}
+
+function isTrackedWrapper(val: any): boolean {
+  return val != null && !!(val as any)[TRACKED_MARKER]
+}
 
 export type TrackContext = <T>(name: string, fn: ($: TrackContext) => T) => T
 
@@ -21,9 +37,10 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
   // Only add prefix if no track on stack already has subscription context (avoid double-prefix)
   const send = state$.value.stack.send.at(-1)
   const hasSubscriptionPrefix = state$.value.stack.hmr_track.some(t => t.id.startsWith("$ref["))
-  const effectiveLocation = send && !hasSubscriptionPrefix
-    ? `$ref[${send.observable_id}]:subscription[${send.subscription_id}]:${location}`
-    : location
+  const effectiveLocation =
+    send && !hasSubscriptionPrefix
+      ? `$ref[${send.observable_id}]:subscription[${send.subscription_id}]:${location}`
+      : location
 
   emit({ type: "track-call", id: effectiveLocation })
 
@@ -34,6 +51,12 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
   try {
     const result = fn($)
 
+    // If result is already a tracked wrapper, just return it
+    // (e.g., returning an already-tracked Subject from a nested scope)
+    if (isTrackedWrapper(result)) {
+      return result
+    }
+
     // If result is a function, wrap to re-invoke __$ on each call
     if (typeof result === "function") {
       const wrapped = (...args: any[]) => {
@@ -42,14 +65,15 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
       return wrapped as T
     }
 
-    // If result is a Subject, return stable trackedSubject wrapper (bi-sync forwarding)
-    if (result instanceof Subject) {
+    // If result is a real Subject (not AnonymousSubject from .pipe()), return stable trackedSubject wrapper
+    if (isRealSubject(result)) {
       // Check store first (for HMR re-execution), then stack (for first execution)
       const trackInStore = state$.value.store.hmr_track[effectiveLocation]
       const trackOnStack = state$.value.stack.hmr_track.at(-1)
       let stable = trackInStore?.stable_ref?.deref()
       if (!stable) {
         stable = __withNoTrack(() => trackedSubject(effectiveLocation))
+        ;(stable as any)[TRACKED_MARKER] = true
         // Set on stack entity (same object that will be stored on track-call-return)
         if (trackOnStack) {
           trackOnStack.stable_ref = new WeakRef(stable!)
@@ -65,6 +89,7 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
       let stable = trackInStore?.stable_ref?.deref()
       if (!stable) {
         stable = __withNoTrack(() => trackedObservable(effectiveLocation))
+        ;(stable as any)[TRACKED_MARKER] = true
         if (trackOnStack) {
           trackOnStack.stable_ref = new WeakRef(stable!)
         }

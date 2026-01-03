@@ -66,6 +66,9 @@ export type ObservableEvent =
   | { type: "track-call"; id: string }
   | { type: "track-call-return"; id: string }
   | { type: "track-update"; id: string; entity_id: string }
+  // HMR module events
+  | { type: "hmr-module-call"; id: string; url: string }
+  | { type: "hmr-module-call-return"; id: string }
 
 export const _observableEvents$ = new Subject<ObservableEvent>()
 
@@ -102,6 +105,7 @@ type Hmm = {
     observable_id: string
     parent_subscription_id?: string
     is_sync: boolean
+    module_id?: string // FK → hmr_module (which file created this sub)
   }
   // Arg position (static observable refs + function positions + primitives)
   arg: {
@@ -136,6 +140,14 @@ type Hmm = {
     version: number // bumps on HMR
     prev_entity_ids: string[] // orphaned entities, awaiting GC
     stable_ref?: WeakRef<Observable<any>> // trackedObservable wrapper returned across HMR
+    module_id?: string // FK → hmr_module (which file owns this track)
+    module_version?: number // set on track-call-return, for orphan detection
+  }
+  // HMR module - tracks file-level module lifecycle
+  hmr_module: {
+    url: string // import.meta.url
+    version: number // bumps on each HMR reload
+    prev_keys: string[] // track keys from previous version (for orphan detection)
   }
 }
 
@@ -206,6 +218,7 @@ export const state$ = new EasierBS<State>({
     arg_call: [],
     send: [],
     hmr_track: [],
+    hmr_module: [],
   },
   store: {
     observable: {},
@@ -217,6 +230,7 @@ export const state$ = new EasierBS<State>({
     arg_call: {},
     send: {},
     hmr_track: {},
+    hmr_module: {},
   },
 })
 

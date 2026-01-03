@@ -68,9 +68,20 @@ export function trackedSubject<T>(trackPath: string): Subject<T> {
   getCurrentSubject()
 
   // Watch for HMR changes - update inner subscription when entity_id changes
-  __withNoTrack(() =>
+  const watcherSub = __withNoTrack(() =>
     state$$.subscribe(() => {
       getCurrentSubject()
+    }),
+  )
+
+  // Teardown: self-subscribe to detect complete, clean up watcher and inner
+  // Subject is multicast so this extra subscriber is fine
+  __withNoTrack(() =>
+    proxy.subscribe({
+      complete: () => {
+        innerSub?.unsubscribe()
+        watcherSub.unsubscribe()
+      },
     }),
   )
 
@@ -187,9 +198,20 @@ export function trackedBehaviorSubject<T>(
   getCurrentSubject()
 
   // Watch for HMR changes
-  __withNoTrack(() =>
+  const watcherSub = __withNoTrack(() =>
     state$$.subscribe(() => {
       getCurrentSubject()
+    }),
+  )
+
+  // Teardown: self-subscribe to detect complete, clean up watcher and inner
+  // Subject is multicast so this extra subscriber is fine
+  __withNoTrack(() =>
+    proxy.subscribe({
+      complete: () => {
+        innerSub?.unsubscribe()
+        watcherSub.unsubscribe()
+      },
     }),
   )
 
