@@ -69,7 +69,7 @@ describe("__$ HMR runtime", () => {
       {
         "created_at": 0,
         "created_at_end": 0,
-        "entity_id": "25",
+        "entity_id": "27",
         "entity_type": "observable",
         "id": "test:pipe",
         "index": 0,
@@ -277,8 +277,10 @@ describe("__$ HMR runtime", () => {
       {
         "hmrTrackStack": [
           "parent",
+          "parent",
         ],
         "sendStack": [
+          "7",
           "6",
         ],
         "tracks": [

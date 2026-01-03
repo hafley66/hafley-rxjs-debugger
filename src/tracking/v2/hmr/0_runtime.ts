@@ -33,14 +33,22 @@ function isTrackedWrapper(val: any): boolean {
 export type TrackContext = <T>(name: string, fn: ($: TrackContext) => T) => T
 
 export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
-  // Dynamic observable naming: prepend subscription context if inside send (callback)
+  // Dynamic observable naming: prepend subscription context if inside send (callback) or subscription (factory)
   // Only add prefix if no track on stack already has subscription context (avoid double-prefix)
   const send = state$.value.stack.send.at(-1)
+  const sub = state$.value.stack.subscription.at(-1)
   const hasSubscriptionPrefix = state$.value.stack.hmr_track.some(t => t.id.startsWith("$ref["))
+
+  // Use send context if in a callback, otherwise use subscription context if in a factory (like defer)
+  const subscriptionContext = send?.subscription_id ?? sub?.id
+  const observableContext = send?.observable_id ?? sub?.observable_id
+  console.log("[__$] location:", location, "send:", !!send, "sub:", !!sub, "hasPrefix:", hasSubscriptionPrefix)
+  console.log("[__$] subscriptionContext:", subscriptionContext, "observableContext:", observableContext)
   const effectiveLocation =
-    send && !hasSubscriptionPrefix
-      ? `$ref[${send.observable_id}]:subscription[${send.subscription_id}]:${location}`
+    subscriptionContext && observableContext && !hasSubscriptionPrefix
+      ? `$ref[${observableContext}]:subscription[${subscriptionContext}]:${location}`
       : location
+  console.log("[__$] effectiveLocation:", effectiveLocation)
 
   emit({ type: "track-call", id: effectiveLocation })
 

@@ -18,6 +18,9 @@ import { bootstrap } from "./01.patch-observable"
 // Separate untracked isEnabled state for tracking control
 export const isEnabled$ = new BehaviorSubject(false)
 
+// Flag to suppress send events (for trackedObservable internal subscriptions)
+export const suppressSend$ = new BehaviorSubject(false)
+
 /** Temporarily disable tracking for internal operations */
 export function __withNoTrack<T>(fn: () => T): T {
   const prev = isEnabled$.value
@@ -26,6 +29,17 @@ export function __withNoTrack<T>(fn: () => T): T {
     return fn()
   } finally {
     isEnabled$.next(prev)
+  }
+}
+
+/** Temporarily suppress send events while keeping track events enabled */
+export function __withNoSend<T>(fn: () => T): T {
+  const prev = suppressSend$.value
+  suppressSend$.next(true)
+  try {
+    return fn()
+  } finally {
+    suppressSend$.next(prev)
   }
 }
 

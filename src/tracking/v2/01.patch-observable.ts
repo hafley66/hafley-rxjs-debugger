@@ -13,11 +13,15 @@ import { createId, observableIdMap } from "./01_helpers"
 let _emit: ((event: ObservableEvent) => void) | null = null
 let _getIsEnabled: (() => boolean) | null = null
 let _getTrackStack: (() => { id: string }[]) | null = null
+let _getSuppressSend: (() => boolean) | null = null
 const _buffer: ObservableEvent[] = []
 
 // Tag context - set by decorators for tagging observables/operators
 let _tagContext: string[] = []
 export const getTagContext = () => _tagContext
+
+// Marker to identify patched subscriptions (avoid double-patching)
+const PATCHED_UNSUB = Symbol("rxjs-debugger-patched-unsubscribe")
 
 // Events that don't require track context at emit time
 // - track-*: manage context itself
@@ -247,17 +251,21 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
     const sub = originalSubscribe.call(this, wrappedObserver)
     emit({ observable_id, type: "subscribe-call-return", id })
 
-    const originalUnsubscribe = sub.unsubscribe.bind(sub)
-    Object.defineProperty(sub, "unsubscribe", {
-      get() {
-        return () => {
-          emit({ observable_id, type: "unsubscribe-call", args, id, index: 0 })
-          const result = originalUnsubscribe()
-          emit({ observable_id, type: "unsubscribe-call-return", id })
-          return result
-        }
-      },
-    })
+    // Only patch unsubscribe if not already patched (avoid double-patching in nested subscriptions)
+    if (!(sub as any)[PATCHED_UNSUB]) {
+      const originalUnsubscribe = sub.unsubscribe.bind(sub)
+      Object.defineProperty(sub, "unsubscribe", {
+        get() {
+          return () => {
+            emit({ observable_id, type: "unsubscribe-call", args, id, index: 0 })
+            const result = originalUnsubscribe()
+            emit({ observable_id, type: "unsubscribe-call-return", id })
+            return result
+          }
+        },
+      })
+      ;(sub as any)[PATCHED_UNSUB] = true
+    }
 
     return sub
   }

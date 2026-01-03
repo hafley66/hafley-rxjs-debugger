@@ -2,6 +2,7 @@ import { Subject } from "rxjs"
 import { describe, expect, it } from "vitest"
 import { useTrackingTestSetup } from "../0_test-utils"
 import { state$ } from "../00.types"
+import { defer, of } from "../04.operators"
 import { _rxjs_debugger_module_start } from "./4_module-scope"
 
 describe("ModuleScope", () => {
@@ -164,6 +165,106 @@ describe("ModuleScope", () => {
       const __$ = _rxjs_debugger_module_start("file:///h.ts")
       expect(__$.module_id).toBe("file:///h.ts")
       __$.end()
+    })
+  })
+
+  describe("defer/lazy factory", () => {
+    it("defer factory runs with subscription context", () => {
+      const __$ = _rxjs_debugger_module_start("file:///defer-test.ts")
+
+      const innerValues: number[] = []
+      const fetch$ = __$("fetch$", () =>
+        defer(() => {
+          // Factory runs at subscribe time
+          return __$("inner", () => of(Math.random()))
+        }),
+      )
+      __$.end()
+
+      // Two subscriptions
+      fetch$.subscribe(v => innerValues.push(v))
+      fetch$.subscribe(v => innerValues.push(v))
+
+      // Each subscription should get independent value
+      expect(innerValues).toHaveLength(2)
+      expect(innerValues[0]).not.toBe(innerValues[1])
+
+      // Snapshot the store to understand current behavior
+      // Filter to just the tracks from this test
+      const relevantTracks = Object.fromEntries(
+        Object.entries(state$.value.store.hmr_track).filter(
+          ([k]) => k.includes("fetch$") || k.includes("inner"),
+        ),
+      )
+      expect(relevantTracks).toMatchInlineSnapshot(`
+        {
+          "$ref[0]:subscription[38]:inner": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "entity_id": "41",
+            "entity_type": "observable",
+            "id": "$ref[0]:subscription[38]:inner",
+            "index": 0,
+            "module_id": undefined,
+            "module_version": undefined,
+            "parent_track_id": undefined,
+            "prev_entity_ids": [],
+            "stable_ref": WeakRef {},
+            "version": 0,
+          },
+          "$ref[0]:subscription[6]:inner": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "entity_id": "9",
+            "entity_type": "observable",
+            "id": "$ref[0]:subscription[6]:inner",
+            "index": 0,
+            "module_id": undefined,
+            "module_version": undefined,
+            "parent_track_id": undefined,
+            "prev_entity_ids": [],
+            "stable_ref": WeakRef {},
+            "version": 0,
+          },
+          "fetch$": {
+            "created_at": 0,
+            "created_at_end": 0,
+            "entity_id": "0",
+            "entity_type": "observable",
+            "id": "fetch$",
+            "index": 0,
+            "module_id": "file:///defer-test.ts",
+            "module_version": 1,
+            "parent_track_id": undefined,
+            "prev_entity_ids": [],
+            "stable_ref": WeakRef {},
+            "version": 0,
+          },
+        }
+      `)
+    })
+
+    it("sync observable (of) completes before subscribe-call-return", () => {
+      const __$ = _rxjs_debugger_module_start("file:///sync-test.ts")
+
+      const timeline: string[] = []
+      const obs$ = __$("obs$", () => of(1, 2, 3))
+      __$.end()
+
+      obs$.subscribe({
+        next: v => timeline.push(`next:${v}`),
+        complete: () => timeline.push("complete"),
+      })
+
+      // All happens synchronously
+      expect(timeline).toMatchInlineSnapshot(`
+        [
+          "next:1",
+          "next:2",
+          "next:3",
+          "complete",
+        ]
+      `)
     })
   })
 })

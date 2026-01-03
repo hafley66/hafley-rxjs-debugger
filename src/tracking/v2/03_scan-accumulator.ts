@@ -108,6 +108,7 @@ export const state$$ = observableEventsEnabled$.pipe(
       }
 
       case "subscribe-call": {
+        console.log("[accumulator] subscribe-call, id:", event.id, "observable_id:", event.observable_id)
         const currentModule = state.stack.hmr_module.at(-1)
         state.store.subscription[event.id] = {
           id: event.id,
