@@ -19,10 +19,16 @@ export interface RxjsDebuggerPluginOptions {
   hmrModulePath?: string
   /** Transform user code to wrap observables/subscriptions. Default: true */
   transformUserCode?: boolean
+  /**
+   * Patch RxJS creation functions (of, from, etc.) with decorateCreate.
+   * Default: false because we use proxy.* wrappers instead.
+   * Enable if you want to track observables created directly via raw rxjs imports.
+   */
+  patchCreation?: boolean
 }
 
 const IMPORT_PATCH = (patchPath: string) =>
-  `import { patchObservable as __patchObservable__, emit as __emit__, createId as __createId__, observableIdMap as __observableIdMap__ } from "${patchPath}";\n`
+  `import { patchObservable as __patchObservable__, emit as __emit__, createId as __createId__, observableIdMap as __observableIdMap__, __isEnabled__ } from "${patchPath}";\n`
 
 const IMPORT_DECORATE_OP = (patchPath: string) =>
   `import { decorateOperatorFun as __decorateOp__ } from "${patchPath}";\n`
@@ -30,8 +36,10 @@ const IMPORT_DECORATE_OP = (patchPath: string) =>
 const IMPORT_DECORATE_CREATE = (patchPath: string) =>
   `import { decorateCreate as __decorateCreate__ } from "${patchPath}";\n`
 
-const CONSTRUCTOR_START = `\nconst __id__ = __createId__();\n`
-const CONSTRUCTOR_END = `\n__observableIdMap__.set(this, __id__);\n__emit__({ type: "constructor-call-return", id: __id__, observable: this });\n`
+// Conditionally create ID only when tracking is enabled
+// If disabled, __id__ = "" (falsy) so store checks fail gracefully
+const CONSTRUCTOR_START = `\nconst __id__ = __isEnabled__() ? __createId__() : "";\n`
+const CONSTRUCTOR_END = `\nthis.__id__ = __id__;\nif (__id__) { __observableIdMap__.set(this, __id__); __emit__({ type: "constructor-call-return", id: __id__, observable: this }); }\n`
 const PATCH_CALL = `\n__patchObservable__(Observable);\n`
 
 // oxc-parser types
@@ -41,7 +49,13 @@ interface OxcParseResult {
 }
 
 export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plugin {
-  const { debug = false, patchModulePath, hmrModulePath, transformUserCode: enableUserTransform = true } = options
+  const {
+    debug = false,
+    patchModulePath,
+    hmrModulePath,
+    transformUserCode: enableUserTransform = true,
+    patchCreation: enablePatchCreation = false,
+  } = options
   let config: VitestConfig
   let resolvedPatchModulePath: string
   let resolvedHmrModulePath: string
@@ -167,20 +181,23 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
       }
 
       // dist/esm5/internal/observable/*.js or dist/esm/internal/observable/*.js
-      const isEsm5Observable = cleanId.includes("/rxjs/dist/esm5/internal/observable/") && cleanId.endsWith(".js")
-      const isEsmObservable = cleanId.includes("/rxjs/dist/esm/internal/observable/") && cleanId.endsWith(".js")
-      if (isEsm5Observable || isEsmObservable) {
-        const fileName = path.basename(cleanId, ".js")
-        // Skip index files and classes (not creation functions)
-        if (fileName === "index" || fileName === "ConnectableObservable") {
-          return null
+      // Skip unless patchCreation is explicitly enabled (we use proxy.* wrappers instead)
+      if (enablePatchCreation) {
+        const isEsm5Observable = cleanId.includes("/rxjs/dist/esm5/internal/observable/") && cleanId.endsWith(".js")
+        const isEsmObservable = cleanId.includes("/rxjs/dist/esm/internal/observable/") && cleanId.endsWith(".js")
+        if (isEsm5Observable || isEsmObservable) {
+          const fileName = path.basename(cleanId, ".js")
+          // Skip index files and classes (not creation functions)
+          if (fileName === "index" || fileName === "ConnectableObservable") {
+            return null
+          }
+          log("MATCHED observable:", fileName, isEsm5Observable ? "(esm5)" : "(esm)")
+          const result = patchCreation(code, resolvedPatchModulePath, fileName)
+          if (result) {
+            log("patchCreation result: SUCCESS for", fileName)
+          }
+          return result
         }
-        log("MATCHED observable:", fileName, isEsm5Observable ? "(esm5)" : "(esm)")
-        const result = patchCreation(code, resolvedPatchModulePath, fileName)
-        if (result) {
-          log("patchCreation result: SUCCESS for", fileName)
-        }
-        return result
       }
 
       // src/internal/operators/*.ts - TypeScript source operators
@@ -198,7 +215,8 @@ export function rxjsDebuggerPlugin(options: RxjsDebuggerPluginOptions = {}): Plu
       }
 
       // src/internal/observable/*.ts - TypeScript source creation operators
-      if (cleanId.includes("/rxjs/src/internal/observable/") && cleanId.endsWith(".ts")) {
+      // Skip unless patchCreation is explicitly enabled (we use proxy.* wrappers instead)
+      if (enablePatchCreation && cleanId.includes("/rxjs/src/internal/observable/") && cleanId.endsWith(".ts")) {
         const fileName = path.basename(cleanId, ".ts")
         // Skip index files and classes (not creation functions)
         if (fileName === "index" || fileName === "ConnectableObservable") {

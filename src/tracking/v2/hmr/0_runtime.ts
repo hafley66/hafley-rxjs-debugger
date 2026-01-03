@@ -9,13 +9,10 @@
  */
 
 import { BehaviorSubject, Observable, Subject } from "rxjs"
-import { __withNoTrack, state$ } from "../00.types"
+import { state$, TRACKED_MARKER } from "../00.types"
 import { emit } from "../01.patch-observable"
 import { trackedObservable } from "./2_tracked-observable"
 import { trackedSubject } from "./3_tracked-subject"
-
-// Marker to identify our tracked wrappers
-export const TRACKED_MARKER = Symbol("rxjs-debugger-tracked")
 
 // Only treat direct Subject/BehaviorSubject instances as Subjects
 // AnonymousSubject (from .pipe()) should be treated as Observable
@@ -37,7 +34,7 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
   // Only add prefix if no track on stack already has subscription context (avoid double-prefix)
   const send = state$.value.stack.send.at(-1)
   const sub = state$.value.stack.subscription.at(-1)
-  const hasSubscriptionPrefix = state$.value.stack.hmr_track.some(t => t.id.startsWith("$ref["))
+  const hasSubscriptionPrefix = state$.value.stack.hmr_track.some(t => t.key.startsWith("$ref["))
 
   // Use send context if in a callback, otherwise use subscription context if in a factory (like defer)
   const subscriptionContext = send?.subscription_id ?? sub?.id
@@ -75,13 +72,23 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
       // Check store first (for HMR re-execution), then stack (for first execution)
       const trackInStore = state$.value.store.hmr_track[effectiveLocation]
       const trackOnStack = state$.value.stack.hmr_track.at(-1)
-      let stable = trackInStore?.stable_ref?.deref()
+      // Capture mutable_observable_id BEFORE creating wrapper
+      // (wrapper's constructor-call-return will incorrectly overwrite it)
+      const mutableIdBeforeWrapper = trackOnStack?.mutable_observable_id
+      // Look up stable wrapper via observable table (obs_ref is the single source of truth)
+      const stableId = trackInStore?.stable_observable_id
+      let stable = stableId ? state$.value.store.observable[stableId]?.obs_ref?.deref() : undefined
       if (!stable) {
-        stable = __withNoTrack(() => trackedSubject(effectiveLocation))
-        ;(stable as any)[TRACKED_MARKER] = true
-        // Set on stack entity (same object that will be stored on track-call-return)
+        // trackedSubject sets TRACKED_MARKER internally
+        stable = trackedSubject(effectiveLocation)
+        // Set stable_observable_id explicitly - TRACKED_MARKER timing doesn't work
+        // (constructor-call-return fires before marker is set)
         if (trackOnStack) {
-          trackOnStack.stable_ref = new WeakRef(stable!)
+          trackOnStack.stable_observable_id = (stable as any).__id__
+          // Restore mutable_observable_id (wrapper's constructor overwrote it)
+          if (mutableIdBeforeWrapper) {
+            trackOnStack.mutable_observable_id = mutableIdBeforeWrapper
+          }
         }
       }
       return stable as T
@@ -91,12 +98,22 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
     if (result instanceof Observable) {
       const trackInStore = state$.value.store.hmr_track[effectiveLocation]
       const trackOnStack = state$.value.stack.hmr_track.at(-1)
-      let stable = trackInStore?.stable_ref?.deref()
+      // Capture mutable_observable_id BEFORE creating wrapper
+      const mutableIdBeforeWrapper = trackOnStack?.mutable_observable_id
+      // Look up stable wrapper via observable table (obs_ref is the single source of truth)
+      const stableId = trackInStore?.stable_observable_id
+      let stable = stableId ? state$.value.store.observable[stableId]?.obs_ref?.deref() : undefined
       if (!stable) {
-        stable = __withNoTrack(() => trackedObservable(effectiveLocation))
-        ;(stable as any)[TRACKED_MARKER] = true
+        // trackedObservable sets TRACKED_MARKER internally
+        stable = trackedObservable(effectiveLocation)
+        // Set stable_observable_id explicitly - TRACKED_MARKER timing doesn't work
+        // (constructor-call-return fires before marker is set)
         if (trackOnStack) {
-          trackOnStack.stable_ref = new WeakRef(stable!)
+          trackOnStack.stable_observable_id = (stable as any).__id__
+          // Restore mutable_observable_id (wrapper's constructor overwrote it)
+          if (mutableIdBeforeWrapper) {
+            trackOnStack.mutable_observable_id = mutableIdBeforeWrapper
+          }
         }
       }
       return stable as T

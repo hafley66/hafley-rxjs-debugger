@@ -2,7 +2,7 @@
  * Tracked Subject
  *
  * Returns a Subject that forwards to the current inner Subject.
- * When hmr_track.entity_id changes, subsequent calls forward to the new Subject.
+ * When hmr_track.mutable_observable_id changes, subsequent calls forward to the new Subject.
  *
  * Bi-directional sync:
  * - proxy.next/error/complete → forwards to inner
@@ -10,12 +10,12 @@
  */
 
 import { BehaviorSubject, Subject, type Subscription } from "rxjs"
-import { __withNoTrack, state$ } from "../00.types"
+import { __withNoTrack, state$, TRACKED_MARKER } from "../00.types"
 import { state$$ } from "../03_scan-accumulator"
 
 /**
  * Create a Subject that tracks an hmr_track entry.
- * All methods forward to the current inner Subject based on entity_id.
+ * All methods forward to the current inner Subject based on mutable_observable_id.
  */
 export function trackedSubject<T>(trackPath: string): Subject<T> {
   let lastEntityId: string | undefined
@@ -23,8 +23,10 @@ export function trackedSubject<T>(trackPath: string): Subject<T> {
   let innerSub: Subscription | null = null
   let isForwarding = false // prevent proxy→inner→proxy loops
 
-  // Create proxy Subject (untracked - it's infrastructure, not user code)
-  const proxy = __withNoTrack(() => new Subject<T>())
+  // Create proxy Subject - tracked so it gets stable_observable_id
+  const proxy = new Subject<T>()
+  // Mark as tracked wrapper so accumulator sets stable_observable_id
+  ;(proxy as any)[TRACKED_MARKER] = true
   const originalNext = proxy.next.bind(proxy)
   const originalError = proxy.error.bind(proxy)
   const originalComplete = proxy.complete.bind(proxy)
@@ -51,7 +53,7 @@ export function trackedSubject<T>(trackPath: string): Subject<T> {
   }
 
   const getCurrentSubject = (): Subject<T> | undefined => {
-    const entityId = state$.value.store.hmr_track[trackPath]?.entity_id
+    const entityId = state$.value.store.hmr_track[trackPath]?.mutable_observable_id
     if (entityId && entityId !== lastEntityId) {
       lastEntityId = entityId
       const obsRecord = state$.value.store.observable[entityId]
@@ -144,8 +146,10 @@ export function trackedBehaviorSubject<T>(
   let innerSub: Subscription | null = null
   let isForwarding = false
 
-  // Create proxy BehaviorSubject (untracked - it's infrastructure, not user code)
-  const proxy = __withNoTrack(() => new BehaviorSubject<T>(initialValue))
+  // Create proxy BehaviorSubject - tracked so it gets stable_observable_id
+  const proxy = new BehaviorSubject<T>(initialValue)
+  // Mark as tracked wrapper so accumulator sets stable_observable_id
+  ;(proxy as any)[TRACKED_MARKER] = true
   const originalNext = proxy.next.bind(proxy)
   const originalError = proxy.error.bind(proxy)
   const originalComplete = proxy.complete.bind(proxy)
@@ -172,7 +176,7 @@ export function trackedBehaviorSubject<T>(
   }
 
   const getCurrentSubject = (): BehaviorSubject<T> | undefined => {
-    const entityId = state$.value.store.hmr_track[trackPath]?.entity_id
+    const entityId = state$.value.store.hmr_track[trackPath]?.mutable_observable_id
     if (entityId && entityId !== lastEntityId) {
       lastEntityId = entityId
       const obsRecord = state$.value.store.observable[entityId]

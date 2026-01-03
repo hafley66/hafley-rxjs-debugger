@@ -13,7 +13,8 @@ import { createId, observableIdMap } from "./01_helpers"
 let _emit: ((event: ObservableEvent) => void) | null = null
 let _getIsEnabled: (() => boolean) | null = null
 let _getTrackStack: (() => { id: string }[]) | null = null
-let _getSuppressSend: (() => boolean) | null = null
+let _getStore: (() => { observable: Record<string, any>; subscription: Record<string, any> }) | null = null
+let _getStack: (() => { subscription: any[] }) | null = null
 const _buffer: ObservableEvent[] = []
 
 // Tag context - set by decorators for tagging observables/operators
@@ -38,10 +39,12 @@ const UNTRACKED_EVENTS = new Set([
 ])
 
 const shouldEmit = (eventType: string): boolean => {
+  // Untracked events always emit (regardless of enabled state)
+  // This allows track-call/track-call-return during defer factory execution
+  // where tracking is disabled to prevent subscribe-call cascades
+  if (UNTRACKED_EVENTS.has(eventType)) return true
   const enabled = _getIsEnabled?.() ?? false
   if (!enabled) return false
-  // Untracked events always emit when enabled
-  if (UNTRACKED_EVENTS.has(eventType)) return true
   // Structured events require track context
   const trackStack = _getTrackStack?.() ?? []
   return trackStack.length > 0
@@ -60,6 +63,8 @@ export const bootstrap = (
   subject: { next: (e: ObservableEvent) => void },
   getIsEnabled: () => boolean,
   getTrackStack: () => { id: string }[],
+  getStore?: () => { observable: Record<string, any>; subscription: Record<string, any> },
+  getStack?: () => { subscription: any[] },
 ) => {
   _emit = e => subject.next(e)
   for (const event of _buffer) {
@@ -68,9 +73,14 @@ export const bootstrap = (
   _buffer.length = 0
   _getIsEnabled = getIsEnabled
   _getTrackStack = getTrackStack
+  _getStore = getStore ?? null
+  _getStack = getStack ?? null
 }
 
 const isEnabled = () => _getIsEnabled?.() ?? false
+
+// Export for constructor injection - used to conditionally create IDs
+export { isEnabled as __isEnabled__ }
 
 const noop = () => {}
 
@@ -181,19 +191,34 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
   // Patch subscribe
   const originalSubscribe = proto.subscribe
   proto.subscribe = function patchedSubscribe(...args: any[]) {
+    // isEnabled controls instance creation - when false, subscription gets __id__ = ""
     if (!isEnabled()) {
-      return originalSubscribe.apply(this, args)
+      const sub = originalSubscribe.apply(this, args)
+      ;(sub as any).__id__ = ""
+      return sub
     }
 
-    const observable_id = observableIdMap.get(this) ?? "UNKNOWN"
-    const id = createId()
-    const subscription_id = id
+    const obs_id = (this as any).__id__ as string | undefined
+    const store = _getStore?.()
 
-    emit({ observable_id, type: "subscribe-call", args, id, index: 0 })
+    // Store-based tracking: observable must have truthy __id__ AND exist in store
+    // If not in store, this observable was created without __$ tracking - pass through
+    if (!obs_id || !store?.observable[obs_id]) {
+      const sub = originalSubscribe.apply(this, args)
+      ;(sub as any).__id__ = ""
+      return sub
+    }
+
+    const observable_id = obs_id
+    const subscription_id = createId()
+
+    emit({ observable_id, type: "subscribe-call", args, id: subscription_id, index: 0 })
 
     const observer = normalizeObserver(args)
     let nextIndex = 0
 
+    // Callbacks emit send events with subscription_id
+    // Accumulator handles stack push/pop based on these events
     const wrappedObserver = {
       next: (value: any) => {
         const emitId = createId()
@@ -249,7 +274,11 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
     }
 
     const sub = originalSubscribe.call(this, wrappedObserver)
-    emit({ observable_id, type: "subscribe-call-return", id })
+
+    // Attach __id__ to subscription for easy lookup
+    ;(sub as any).__id__ = subscription_id
+
+    emit({ observable_id, type: "subscribe-call-return", id: subscription_id })
 
     // Only patch unsubscribe if not already patched (avoid double-patching in nested subscriptions)
     if (!(sub as any)[PATCHED_UNSUB]) {
@@ -257,9 +286,9 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
       Object.defineProperty(sub, "unsubscribe", {
         get() {
           return () => {
-            emit({ observable_id, type: "unsubscribe-call", args, id, index: 0 })
+            emit({ observable_id, type: "unsubscribe-call", args, id: subscription_id, index: 0 })
             const result = originalUnsubscribe()
-            emit({ observable_id, type: "unsubscribe-call-return", id })
+            emit({ observable_id, type: "unsubscribe-call-return", id: subscription_id })
             return result
           }
         },

@@ -4,7 +4,7 @@
 
 import { Observable } from "rxjs"
 import { afterEach, beforeEach } from "vitest"
-import { isEnabled$, state$ } from "./00.types"
+import { isEnabled$, resetEventBuffer, state$ } from "./00.types"
 import { resetIdCounter, setNow } from "./01_helpers"
 import { patchObservable } from "./01.patch-observable"
 
@@ -31,6 +31,7 @@ export function useTrackingTestSetup(opts: TestSetupOptions | boolean = {}) {
   beforeEach(() => {
     ensurePatched()
     resetIdCounter()
+    resetEventBuffer()
     setNow(0)
     state$.reset()
     isEnabled$.next(true)

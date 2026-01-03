@@ -10,7 +10,8 @@
       "Bash(pnpm vitest:*)",
       "Bash(pnpm list:*)",
       "Bash(pnpm test:browser:*)",
-      "Bash(pnpm test:run:*)"
+      "Bash(pnpm test:run:*)",
+      "mcp__plugin_claude-mem_mcp-search__get_observations"
     ]
   }
 }

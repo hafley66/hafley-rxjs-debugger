@@ -18,8 +18,17 @@ import { bootstrap } from "./01.patch-observable"
 // Separate untracked isEnabled state for tracking control
 export const isEnabled$ = new BehaviorSubject(false)
 
+// Marker to identify tracked observable wrappers (for HMR)
+export const TRACKED_MARKER = Symbol("rxjs-debugger-tracked")
+
 // Flag to suppress send events (for trackedObservable internal subscriptions)
 export const suppressSend$ = new BehaviorSubject(false)
+
+// Debug buffer for capturing all events (reset in test setup)
+export const _eventBuffer: ObservableEvent[] = []
+export function resetEventBuffer() {
+  _eventBuffer.length = 0
+}
 
 /** Temporarily disable tracking for internal operations */
 export function __withNoTrack<T>(fn: () => T): T {
@@ -79,17 +88,25 @@ export type ObservableEvent =
   // HMR track events
   | { type: "track-call"; id: string }
   | { type: "track-call-return"; id: string }
-  | { type: "track-update"; id: string; entity_id: string }
   // HMR module events
   | { type: "hmr-module-call"; id: string; url: string }
   | { type: "hmr-module-call-return"; id: string }
 
 export const _observableEvents$ = new Subject<ObservableEvent>()
 
+// Capture all events to debug buffer (useful for test debugging)
+_observableEvents$.subscribe(e => _eventBuffer.push(e))
+
 // Bootstrap the late-bound emitter after module initialization completes
 // Using queueMicrotask to defer until after all module-level code runs
 queueMicrotask(() =>
-  bootstrap(_observableEvents$, () => isEnabled$.value, () => state$.value.stack.hmr_track),
+  bootstrap(
+    _observableEvents$,
+    () => isEnabled$.value,
+    () => state$.value.stack.hmr_track,
+    () => state$.value.store,
+    () => state$.value.stack,
+  ),
 )
 
 type Hmm = {
@@ -147,13 +164,13 @@ type Hmm = {
   }
   // HMR track - separate layer for hot module replacement
   hmr_track: {
-    entity_type: "operator_fun" | "observable" | "pipe"
-    entity_id: string // FK → current entity (MUTABLE on HMR)
+    key: string // track location key from __$ (e.g., "outer", "root:child")
+    mutable_observable_id: string // FK → current inner observable (MUTABLE on HMR)
+    stable_observable_id?: string // FK → stable wrapper observable
     parent_track_id?: string // tree structure for nesting
     index: number // position in parent scope
     version: number // bumps on HMR
-    prev_entity_ids: string[] // orphaned entities, awaiting GC
-    stable_ref?: WeakRef<Observable<any>> // trackedObservable wrapper returned across HMR
+    prev_observable_ids: string[] // orphaned observables, awaiting GC
     module_id?: string // FK → hmr_module (which file owns this track)
     module_version?: number // set on track-call-return, for orphan detection
   }

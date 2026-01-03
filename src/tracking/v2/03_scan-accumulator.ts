@@ -1,7 +1,7 @@
 import { Subject, type Observable } from "rxjs"
 import { share } from "rxjs/operators"
-import { observableEventsEnabled$, type State, state$ } from "./00.types"
-import { now, observableIdMap } from "./01_helpers"
+import { observableEventsEnabled$, type State, state$, TRACKED_MARKER } from "./00.types"
+import { now, observableIdMap, createId } from "./01_helpers"
 import { crawlArgs } from "./02_arg-crawler"
 
 // Structural serialization for HMR change detection
@@ -47,8 +47,12 @@ export const state$$ = observableEventsEnabled$.pipe(
         // Capture into current track if any
         const track = state.stack.hmr_track.at(-1)
         if (track) {
-          track.entity_type = "observable"
-          track.entity_id = event.id
+          if ((event.observable as any)[TRACKED_MARKER]) {
+            // Stable wrapper - set stable_observable_id, NOT mutable_observable_id
+            track.stable_observable_id = event.id
+          } else {
+            track.mutable_observable_id = event.id
+          }
         }
         break
       }
@@ -68,8 +72,7 @@ export const state$$ = observableEventsEnabled$.pipe(
         // Capture into current track if any
         const track = state.stack.hmr_track.at(-1)
         if (track) {
-          track.entity_type = "observable"
-          track.entity_id = obsId
+          track.mutable_observable_id = obsId
         }
         break
       }
@@ -101,19 +104,45 @@ export const state$$ = observableEventsEnabled$.pipe(
         // Capture into current track - use the output observable's id
         const track = state.stack.hmr_track.at(-1)
         if (track) {
-          track.entity_type = "observable"
-          track.entity_id = event.observable_id
+          track.mutable_observable_id = event.observable_id
         }
         break
       }
 
       case "subscribe-call": {
+        /**
+         * ┌─────────────────────────────────────────────────────────────────────┐
+         * │ INTERNAL PLUMBING DETECTION                                         │
+         * ├─────────────────────────────────────────────────────────────────────┤
+         * │ When a tracked wrapper subscribes to its own inner observable,      │
+         * │ that's internal plumbing - not a user subscription.                 │
+         * │                                                                     │
+         * │   hmr_track[key] {                                                  │
+         * │     stable_observable_id: "3"  ← wrapper                            │
+         * │     mutable_observable_id: "2" ← inner                              │
+         * │   }                                                                 │
+         * │                                                                     │
+         * │   subscription from "3" → "2" = internal (skip tracking)            │
+         * │   subscription from user → "3" = external (track it)                │
+         * │                                                                     │
+         * │ The relationship is encoded in the data model - we just query it.   │
+         * └─────────────────────────────────────────────────────────────────────┘
+         */
+        const parentSub = state.stack.subscription.at(-1)
+        if (parentSub) {
+          const isInternalPlumbing = Object.values(state.store.hmr_track).some(
+            t => t.stable_observable_id === parentSub.observable_id
+              && t.mutable_observable_id === event.observable_id,
+          )
+          if (isInternalPlumbing) break // Skip tracking wrapper→inner subscription
+        }
+
         const currentModule = state.stack.hmr_module.at(-1)
         state.store.subscription[event.id] = {
           id: event.id,
           created_at: now(),
           observable_id: event.observable_id,
-          parent_subscription_id: state.stack.subscription[state.stack.subscription.length - 1]?.id,
+          parent_subscription_id: parentSub?.id,
           is_sync: false, // Will be updated if complete/error fires before subscribe-call-return
           module_id: currentModule?.id,
         }
@@ -122,12 +151,14 @@ export const state$$ = observableEventsEnabled$.pipe(
       }
 
       case "subscribe-call-return": {
+        // If subscription wasn't tracked (internal plumbing), skip
+        if (!state.store.subscription[event.id]) break
+
         const subEntity = state.stack.subscription.pop()
         if (subEntity) {
           subEntity.created_at_end = now()
           // TODO: Check is_sync flag (did complete/error fire before this?)
         }
-
         break
       }
 
@@ -149,20 +180,20 @@ export const state$$ = observableEventsEnabled$.pipe(
 
       case "send-call": {
         // Find origin track for this observable - skip if none (internal subscription)
-        // Check both entity_id (for inner observables) and track id (for wrapper observables)
+        // Check mutable_observable_id (inner) and stable_observable_id (wrapper)
         const originTrack = Object.values(state.store.hmr_track).find(
-          t => t.entity_id === event.observable_id || t.id === event.observable_id,
+          t => t.mutable_observable_id === event.observable_id || t.stable_observable_id === event.observable_id,
         )
         if (!originTrack) break
 
         // Push origin track context so inner observables get proper context
         state.stack.hmr_track.push(originTrack)
 
-        // Use track ID as observable_id so sends reference the stable wrapper, not ephemeral inner
+        // Keep actual observable_id - don't overwrite to track.id
         state.store.send[event.id] = {
           created_at: now(),
           id: event.id,
-          observable_id: originTrack.id,
+          observable_id: event.observable_id,
           subscription_id: event.subscription_id,
           type: event.kind,
           ...(event.kind === "next" ? { value: event.value } : event.kind === "error" ? { error: event.error } : {}),
@@ -200,12 +231,7 @@ export const state$$ = observableEventsEnabled$.pipe(
         for (const arg of args) {
           state.store.arg[arg.id] = arg
         }
-        // Capture into current track if any
-        const track = state.stack.hmr_track.at(-1)
-        if (track) {
-          track.entity_type = "operator_fun"
-          track.entity_id = event.id
-        }
+        // Don't capture operator_fun into track - only observables matter
         break
       }
       case "operator-fun-call-return": {
@@ -287,14 +313,14 @@ export const state$$ = observableEventsEnabled$.pipe(
         const parent = state.stack.hmr_track.at(-1)
         const currentModule = state.stack.hmr_module.at(-1)
         const entity = {
-          id: event.id,
+          id: createId(),
+          key: event.id,
           created_at: now(),
-          entity_type: undefined as unknown as "operator_fun" | "observable" | "pipe",
-          entity_id: "",
+          mutable_observable_id: "",
           parent_track_id: parent?.id,
           index: 0, // TODO: track per-parent index
           version: 0,
-          prev_entity_ids: [] as string[],
+          prev_observable_ids: [] as string[],
           module_id: currentModule?.id,
         }
         state.stack.hmr_track.push(entity)
@@ -302,59 +328,40 @@ export const state$$ = observableEventsEnabled$.pipe(
       }
       case "track-call-return": {
         const entity = state.stack.hmr_track.pop()
-        if (!entity || !entity.entity_id) break
+        if (!entity || !entity.mutable_observable_id) break
         entity.created_at_end = now()
 
         const currentModule = state.stack.hmr_module.at(-1)
-        const existing = state.store.hmr_track[entity.id]
-        if (existing && existing.entity_id !== entity.entity_id) {
+        // Look up by key (the track location), not id (surrogate)
+        const existing = state.store.hmr_track[entity.key]
+        if (existing && existing.mutable_observable_id !== entity.mutable_observable_id) {
           // HMR re-execution detected - compare structural hashes
-          const oldObs = state.store.observable[existing.entity_id]
-          const newObs = state.store.observable[entity.entity_id]
+          const oldObs = state.store.observable[existing.mutable_observable_id]
+          const newObs = state.store.observable[entity.mutable_observable_id]
           const structureChanged = oldObs?.name !== newObs?.name
 
           // Update in place
-          existing.prev_entity_ids.push(existing.entity_id)
-          existing.entity_id = entity.entity_id
-          existing.entity_type = entity.entity_type
+          existing.prev_observable_ids.push(existing.mutable_observable_id)
+          existing.mutable_observable_id = entity.mutable_observable_id
+          existing.stable_observable_id = entity.stable_observable_id
           existing.version += 1
           existing.module_version = currentModule?.version
           // Store whether this was a structural change (for future optimization)
           // structureChanged: true = need full swap, false = fn-only hot swap
           ;(existing as any).last_change_structural = structureChanged
         } else if (existing) {
-          // Same entity_id, just mark as touched this module version
+          // Same mutable_observable_id, just mark as touched this module version
           existing.module_version = currentModule?.version
-        } else {
-          // First time - store it
-          entity.module_version = currentModule?.version
-          state.store.hmr_track[entity.id] = entity
-        }
-
-        // Register wrapper in store.observable for stable subscription IDs
-        // This makes the wrapper the "visible" entity - subscriptions point to track key ID
-        const wrapper = entity.stable_ref?.deref()
-        if (wrapper) {
-          const innerName = state.store.observable[entity.entity_id]?.name
-          state.store.observable[entity.id] = {
-            id: entity.id,
-            created_at: now(),
-            created_at_end: now(),
-            name: innerName ? `tracked(${innerName})` : `tracked(${entity.id})`,
-            obs_ref: entity.stable_ref,
+          // Update stable_observable_id if changed
+          if (entity.stable_observable_id) {
+            existing.stable_observable_id = entity.stable_observable_id
           }
-          observableIdMap.set(wrapper, entity.id)
+        } else {
+          // First time - store it by key
+          entity.module_version = currentModule?.version
+          state.store.hmr_track[entity.key] = entity
         }
-        break
-      }
-      case "track-update": {
-        const track = state.store.hmr_track[event.id]
-        if (!track) break
-        if (track.entity_id !== event.entity_id) {
-          track.prev_entity_ids.push(track.entity_id)
-          track.entity_id = event.entity_id
-          track.version += 1
-        }
+        // Wrapper registration now handled by constructor-call-return via TRACKED_MARKER
         break
       }
 
@@ -364,7 +371,7 @@ export const state$$ = observableEventsEnabled$.pipe(
           // HMR reload - bump version, snapshot current keys
           const currentKeys = Object.values(state.store.hmr_track)
             .filter(t => t.module_id === event.id)
-            .map(t => t.id)
+            .map(t => t.key)
           existing.prev_keys = currentKeys
           existing.version += 1
         } else {
@@ -390,7 +397,7 @@ export const state$$ = observableEventsEnabled$.pipe(
         const currentKeys = new Set(
           Object.values(state.store.hmr_track)
             .filter(t => t.module_id === module.id && t.module_version === module.version)
-            .map(t => t.id),
+            .map(t => t.key),
         )
         const orphanedKeys = module.prev_keys.filter(k => !currentKeys.has(k))
 
@@ -399,9 +406,11 @@ export const state$$ = observableEventsEnabled$.pipe(
         for (const key of orphanedKeys) {
           const track = state.store.hmr_track[key]
           if (track) {
-            orphanedObsIds.add(track.entity_id)
+            orphanedObsIds.add(track.mutable_observable_id)
             // Complete the wrapper to trigger teardown (unsubscribes state$$ watcher)
-            const wrapper = track.stable_ref?.deref()
+            // Use observable table (obs_ref is single source of truth for WeakRefs)
+            const stableId = track.stable_observable_id
+            const wrapper = stableId ? state.store.observable[stableId]?.obs_ref?.deref() : undefined
             if (wrapper instanceof Subject) {
               wrapper.complete()
             }

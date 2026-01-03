@@ -1,0 +1,41 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`__$ HMR runtime > prepends subscription context to track path when inside send callback 1`] = `
+{
+  "eventsAfterCreate": [
+    "track-call",
+    "constructor-call-return",
+    "constructor-call-return",
+    "track-call-return",
+  ],
+  "innerTrackId": "11",
+  "sendCount": 4,
+  "sends": [
+    {
+      "id": "7",
+      "observable_id": "1",
+      "subscription_id": "6",
+    },
+    {
+      "id": "8",
+      "observable_id": "1",
+      "subscription_id": "5",
+    },
+    {
+      "id": "9",
+      "observable_id": "2",
+      "subscription_id": "4",
+    },
+    {
+      "id": "10",
+      "observable_id": "2",
+      "subscription_id": "3",
+    },
+  ],
+  "subscribeCalls": [],
+  "tracks": [
+    "outer",
+    "$ref[2]:subscription[3]:inner",
+  ],
+}
+`;

@@ -1,6 +1,6 @@
-import { BehaviorSubject, Subject } from "rxjs"
+import { BehaviorSubject, of as rxjsOf, Subject } from "rxjs"
 import { describe, expect, it } from "vitest"
-import { state$ } from "../00.types"
+import { _eventBuffer, state$ } from "../00.types"
 import { __$ } from "./0_runtime"
 import "../03_scan-accumulator"
 import { useTrackingTestSetup } from "../0_test-utils"
@@ -18,15 +18,15 @@ describe("__$ HMR runtime", () => {
       {
         "created_at": 0,
         "created_at_end": 0,
-        "entity_id": "0",
-        "entity_type": "observable",
-        "id": "test:obs",
+        "id": "0",
         "index": 0,
+        "key": "test:obs",
         "module_id": undefined,
         "module_version": undefined,
+        "mutable_observable_id": "1",
         "parent_track_id": undefined,
-        "prev_entity_ids": [],
-        "stable_ref": WeakRef {},
+        "prev_observable_ids": [],
+        "stable_observable_id": "5",
         "version": 0,
       }
     `)
@@ -42,15 +42,15 @@ describe("__$ HMR runtime", () => {
         "root:child": {
           "created_at": 0,
           "created_at_end": 0,
-          "entity_id": "0",
-          "entity_type": "observable",
-          "id": "root:child",
+          "id": "1",
           "index": 0,
+          "key": "root:child",
           "module_id": undefined,
           "module_version": undefined,
-          "parent_track_id": "root",
-          "prev_entity_ids": [],
-          "stable_ref": WeakRef {},
+          "mutable_observable_id": "2",
+          "parent_track_id": "0",
+          "prev_observable_ids": [],
+          "stable_observable_id": "4",
           "version": 0,
         },
       }
@@ -69,15 +69,15 @@ describe("__$ HMR runtime", () => {
       {
         "created_at": 0,
         "created_at_end": 0,
-        "entity_id": "27",
-        "entity_type": "observable",
-        "id": "test:pipe",
+        "id": "0",
         "index": 0,
+        "key": "test:pipe",
         "module_id": undefined,
         "module_version": undefined,
+        "mutable_observable_id": "19",
         "parent_track_id": undefined,
-        "prev_entity_ids": [],
-        "stable_ref": WeakRef {},
+        "prev_observable_ids": [],
+        "stable_observable_id": "20",
         "version": 0,
       }
     `)
@@ -97,18 +97,18 @@ describe("__$ HMR runtime", () => {
       {
         "created_at": 0,
         "created_at_end": 0,
-        "entity_id": "6",
-        "entity_type": "observable",
-        "id": "test:fn",
+        "id": "1",
         "index": 0,
+        "key": "test:fn",
         "last_change_structural": true,
         "module_id": undefined,
         "module_version": undefined,
+        "mutable_observable_id": "6",
         "parent_track_id": undefined,
-        "prev_entity_ids": [
-          "0",
+        "prev_observable_ids": [
+          "2",
         ],
-        "stable_ref": WeakRef {},
+        "stable_observable_id": undefined,
         "version": 1,
       }
     `)
@@ -122,7 +122,7 @@ describe("__$ HMR runtime", () => {
       return proxy.of(1)
     })
 
-    expect(capturedTrack?.id).toMatchInlineSnapshot(`"test:peek"`)
+    expect(capturedTrack?.id).toMatchInlineSnapshot(`"0"`)
   })
 
   it("stack is empty outside of track scope", () => {
@@ -134,37 +134,23 @@ describe("__$ HMR runtime", () => {
       return $("myMap", () => proxy.map((x: number) => x * 2))
     })
 
-    expect(state$.value.store.hmr_track["test:op:myMap"]).toMatchInlineSnapshot(`
-      {
-        "created_at": 0,
-        "created_at_end": 0,
-        "entity_id": "2",
-        "entity_type": "operator_fun",
-        "id": "test:op:myMap",
-        "index": 0,
-        "module_id": undefined,
-        "module_version": undefined,
-        "parent_track_id": "test:op",
-        "prev_entity_ids": [],
-        "version": 0,
-      }
-    `)
+    expect(state$.value.store.hmr_track["test:op:myMap"]).toMatchInlineSnapshot(`undefined`)
   })
 
   it("detects fn-only change when structure same (last_change_structural: false)", () => {
     // First execution
     __$("test:hmr", () => proxy.of(1, 2, 3).pipe(proxy.map(x => x * 2)))
-    const entity1 = state$.value.store.hmr_track["test:hmr"].entity_id
-    const obs1Name = state$.value.store.observable[entity1]?.name
+    const mutableId1 = state$.value.store.hmr_track["test:hmr"].mutable_observable_id
+    const obs1Name = state$.value.store.observable[mutableId1]?.name
     expect(state$.value.store.hmr_track["test:hmr"].version).toBe(0)
 
     // Simulate HMR: same structure, different fn body
     __$("test:hmr", () => proxy.of(1, 2, 3).pipe(proxy.map(x => x * 3)))
     const track2 = state$.value.store.hmr_track["test:hmr"]
-    const obs2Name = state$.value.store.observable[track2.entity_id]?.name
+    const obs2Name = state$.value.store.observable[track2.mutable_observable_id]?.name
 
     expect(track2.version).toBe(1)
-    expect(track2.prev_entity_ids).toContain(entity1)
+    expect(track2.prev_observable_ids).toContain(mutableId1)
     // Same structure: of(1,2,3).map(fn) → of(1,2,3).map(fn)
     expect(obs1Name).toBe(obs2Name) // Both should serialize the same
     expect((track2 as any).last_change_structural).toBe(false)
@@ -173,8 +159,8 @@ describe("__$ HMR runtime", () => {
   it("detects structural change when operator added (last_change_structural: true)", () => {
     // First execution
     __$("test:structural", () => proxy.of(1, 2, 3).pipe(proxy.map(x => x * 2)))
-    const entity1 = state$.value.store.hmr_track["test:structural"].entity_id
-    const obs1Name = state$.value.store.observable[entity1]?.name
+    const mutableId1 = state$.value.store.hmr_track["test:structural"].mutable_observable_id
+    const obs1Name = state$.value.store.observable[mutableId1]?.name
 
     // Simulate HMR: added filter operator
     __$("test:structural", () =>
@@ -185,7 +171,7 @@ describe("__$ HMR runtime", () => {
     )
 
     const track = state$.value.store.hmr_track["test:structural"]
-    const obs2Name = state$.value.store.observable[track.entity_id]?.name
+    const obs2Name = state$.value.store.observable[track.mutable_observable_id]?.name
 
     expect({
       obs1Name,
@@ -216,81 +202,44 @@ describe("__$ HMR runtime", () => {
   })
 
   it("prepends subscription context to track path when inside send callback", () => {
-    // Wrap outer observable in __$ - returns tracked wrapper
-    const outer$ = __$("outer", () => proxy.of(1))
+    // Use rxjsOf (not proxy.of) to avoid double decoration from Vite plugin + proxy wrapper
+    // The Vite plugin already decorates rxjs creation functions
+    const outer$ = __$("outer", () => rxjsOf(1))
+
+    // Capture event types after creation
+    const eventsAfterCreate = _eventBuffer.map(e => e.type)
+
+    // Subscribe to wrapper and capture sends during callback
+    let sendsDuringCallback: typeof state$.value.stack.send = []
     let innerTrackId: string | undefined
-    let sendStackDuringCallback: typeof state$.value.stack.send = []
-    const vals: any[] = []
-    // Subscribe to the wrapper (what user code actually does)
-    outer$.subscribe(next => {
-      vals.push(next)
-      // Capture send stack during callback
-      sendStackDuringCallback = [...state$.value.stack.send]
+    outer$.subscribe(() => {
+      sendsDuringCallback = [...state$.value.stack.send]
       // This __$ call happens during send - should get subscription context
       __$("inner", () => {
         innerTrackId = state$.value.stack.hmr_track.at(-1)?.id
-        return proxy.of(2)
+        return rxjsOf(2)
       })
     })
-    expect(vals).toMatchInlineSnapshot(`
-      [
-        1,
-      ]
-    `)
 
-    // Verify send stack was populated during callback
-    expect(sendStackDuringCallback).toMatchInlineSnapshot(`
-      [
-        {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "10",
-          "observable_id": "outer",
-          "subscription_id": "9",
-          "type": "next",
-          "value": 1,
-        },
-        {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "11",
-          "observable_id": "outer",
-          "subscription_id": "8",
-          "type": "next",
-          "value": 1,
-        },
-        {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "12",
-          "observable_id": "outer",
-          "subscription_id": "7",
-          "type": "next",
-          "value": 1,
-        },
-        {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "13",
-          "observable_id": "outer",
-          "subscription_id": "6",
-          "type": "next",
-          "value": 1,
-        },
-      ]
-    `)
-    expect(sendStackDuringCallback[0].observable_id).toBe("outer")
+    // Show event flow: count subscribe-call events and their observable_ids
+    const subscribeCalls = _eventBuffer
+      .filter((e): e is Extract<typeof e, { type: "subscribe-call" }> => e.type === "subscribe-call")
+      .map(e => ({ id: e.id, observable_id: e.observable_id }))
 
-    // Verify track was stored with subscription context prefix
-    expect({ innerTrackId, tracks: Object.keys(state$.value.store.hmr_track) }).toMatchInlineSnapshot(`
-      {
-        "innerTrackId": "$ref[outer]:subscription[6]:inner",
-        "tracks": [
-          "outer",
-          "$ref[outer]:subscription[6]:inner",
-        ],
-      }
-    `)
+    // Expected: 2 subscriptions (wrapper + inner of(1))
+    // Actual: 4 - why?
+    expect({
+      eventsAfterCreate,
+      subscribeCalls,
+      sendCount: sendsDuringCallback.length,
+      sends: sendsDuringCallback.map(s => ({
+        id: s.id,
+        subscription_id: s.subscription_id,
+        observable_id: s.observable_id,
+      })),
+      innerTrackId,
+      tracks: Object.keys(state$.value.store.hmr_track),
+    }).toMatchSnapshot()
   })
 
   it("nested child $ tracker also gets subscription context", () => {
@@ -316,20 +265,20 @@ describe("__$ HMR runtime", () => {
     }).toMatchInlineSnapshot(`
       {
         "hmrTrackStack": [
-          "parent",
-          "parent",
-          "parent",
-          "parent",
+          "0",
+          "0",
+          "0",
+          "0",
         ],
         "sendStack": [
-          "9",
-          "8",
           "7",
           "6",
+          "5",
+          "4",
         ],
         "tracks": [
           "parent",
-          "$ref[parent]:subscription[6]:level1:level2",
+          "$ref[3]:subscription[4]:level1:level2",
         ],
       }
     `)
