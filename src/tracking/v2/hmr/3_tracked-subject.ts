@@ -125,15 +125,8 @@ export function trackedSubject<T>(trackPath: string): Subject<T> {
     originalComplete()
   }
 
-  // Override subscribe to forward to current inner Subject
-  const originalSubscribe = proxy.subscribe.bind(proxy)
-  proxy.subscribe = ((...args: any[]) => {
-    const inner = getCurrentSubject()
-    if (inner) {
-      return __withNoTrack(() => inner.subscribe(...args))
-    }
-    return originalSubscribe(...args)
-  }) as typeof proxy.subscribe
+  // No subscribe override needed - bi-sync already forwards inner→proxy
+  // Subscriptions to proxy are tracked with stable ID (track key)
 
   return proxy
 }
@@ -270,15 +263,8 @@ export function trackedBehaviorSubject<T>(
     },
   })
 
-  // Override subscribe to forward to current inner Subject
-  const originalSubscribe = proxy.subscribe.bind(proxy)
-  proxy.subscribe = ((...args: any[]) => {
-    const inner = getCurrentSubject()
-    if (inner) {
-      return __withNoTrack(() => inner.subscribe(...args))
-    }
-    return originalSubscribe(...args)
-  }) as typeof proxy.subscribe
+  // No subscribe override needed - bi-sync already forwards inner→proxy
+  // Subscriptions to proxy are tracked with stable ID (track key)
 
   return proxy
 }

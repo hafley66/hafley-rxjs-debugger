@@ -3,11 +3,13 @@
  *
  * Returns an observable that switches source when hmr_track.entity_id changes.
  * The proxy layer that makes HMR work - subscriptions stay alive, source swaps underneath.
+ *
+ * The wrapper IS the tracked entity - registered in store.observable with track key as ID.
+ * User subscriptions point to the stable wrapper ID, not ephemeral inner observable IDs.
  */
 
 import { Observable, type Subscription } from "rxjs"
 import { __withNoTrack, state$ } from "../00.types"
-import { createId } from "../01_helpers"
 import { state$$ } from "../03_scan-accumulator"
 
 /**
@@ -16,6 +18,10 @@ import { state$$ } from "../03_scan-accumulator"
  * User subscriptions see seamless switch.
  */
 export function trackedObservable<T>(trackPath: string): Observable<T> {
+  // Capture module context at creation time for later restoration
+  const track = state$.value.store.hmr_track[trackPath] ?? state$.value.stack.hmr_track.find(t => t.id === trackPath)
+  const moduleId = track?.module_id
+
   return new Observable<T>(subscriber => {
     let innerSub: Subscription | null = null
     let lastEntityId: string | undefined
@@ -24,29 +30,42 @@ export function trackedObservable<T>(trackPath: string): Observable<T> {
       if (entityId === lastEntityId) return
       lastEntityId = entityId
 
-      // NOTE: We don't use __withNoTrack here because defer factories
-      // need tracking enabled to properly track inner observables
-      innerSub?.unsubscribe()
+      // Unsubscribe old source (untracked to prevent noise)
+      if (innerSub) {
+        __withNoTrack(() => innerSub?.unsubscribe())
+        innerSub = null
+      }
+
       const obsRecord = state$.value.store.observable[entityId]
       const sourceObs = obsRecord?.obs_ref?.deref()
       if (sourceObs) {
-        // Push synthetic subscription context so defer factories get scoped track keys
-        // This is needed because trackedObservable itself isn't tracked (created with __withNoTrack)
-        const syntheticSub = {
-          id: createId(),
-          created_at: 0,
-          observable_id: entityId,
+        // Restore module and track context so defer factories get proper tracking
+        // Track context is needed for shouldEmit to allow subscribe-call events
+        // IMPORTANT: Create a shallow copy of track to avoid mutating the stored track
+        const storedTrack = state$.value.store.hmr_track[trackPath]
+        const trackCopy = storedTrack ? { ...storedTrack } : undefined
+        const module = moduleId ? state$.value.store.hmr_module[moduleId] : undefined
+
+        // Push module/track context but DON'T enable tracking
+        // This lets defer factories see the context but doesn't create subscribe-call events
+        if (module && trackCopy) {
+          state$.value.stack.hmr_module.push(module)
+          state$.value.stack.hmr_track.push(trackCopy)
+          // DON'T set isEnabled$.next(true) - that causes subscribe events which cascade
         }
-        state$.value.stack.subscription.push(syntheticSub as any)
 
         try {
+          // Subscribe to inner - tracking stays disabled to avoid event cascade
           innerSub = sourceObs.subscribe({
             next: v => subscriber.next(v),
             error: e => subscriber.error(e),
             complete: () => subscriber.complete(),
           })
         } finally {
-          state$.value.stack.subscription.pop()
+          if (module && trackCopy) {
+            state$.value.stack.hmr_track.pop()
+            state$.value.stack.hmr_module.pop()
+          }
         }
       }
     }
@@ -64,10 +83,11 @@ export function trackedObservable<T>(trackPath: string): Observable<T> {
     }
 
     // Watch for changes - internal subscription, no tracking
+    // Only reconnect if entity_id actually changes (HMR scenario)
     const watchSub = __withNoTrack(() =>
       state$$.subscribe(s => {
         const entityId = s.store.hmr_track[trackPath]?.entity_id
-        if (entityId) {
+        if (entityId && entityId !== lastEntityId) {
           connectToSource(entityId)
         }
       }),

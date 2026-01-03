@@ -108,7 +108,6 @@ export const state$$ = observableEventsEnabled$.pipe(
       }
 
       case "subscribe-call": {
-        console.log("[accumulator] subscribe-call, id:", event.id, "observable_id:", event.observable_id)
         const currentModule = state.stack.hmr_module.at(-1)
         state.store.subscription[event.id] = {
           id: event.id,
@@ -150,16 +149,20 @@ export const state$$ = observableEventsEnabled$.pipe(
 
       case "send-call": {
         // Find origin track for this observable - skip if none (internal subscription)
-        const originTrack = Object.values(state.store.hmr_track).find(t => t.entity_id === event.observable_id)
+        // Check both entity_id (for inner observables) and track id (for wrapper observables)
+        const originTrack = Object.values(state.store.hmr_track).find(
+          t => t.entity_id === event.observable_id || t.id === event.observable_id,
+        )
         if (!originTrack) break
 
         // Push origin track context so inner observables get proper context
         state.stack.hmr_track.push(originTrack)
 
+        // Use track ID as observable_id so sends reference the stable wrapper, not ephemeral inner
         state.store.send[event.id] = {
           created_at: now(),
           id: event.id,
-          observable_id: event.observable_id,
+          observable_id: originTrack.id,
           subscription_id: event.subscription_id,
           type: event.kind,
           ...(event.kind === "next" ? { value: event.value } : event.kind === "error" ? { error: event.error } : {}),
@@ -326,6 +329,21 @@ export const state$$ = observableEventsEnabled$.pipe(
           // First time - store it
           entity.module_version = currentModule?.version
           state.store.hmr_track[entity.id] = entity
+        }
+
+        // Register wrapper in store.observable for stable subscription IDs
+        // This makes the wrapper the "visible" entity - subscriptions point to track key ID
+        const wrapper = entity.stable_ref?.deref()
+        if (wrapper) {
+          const innerName = state.store.observable[entity.entity_id]?.name
+          state.store.observable[entity.id] = {
+            id: entity.id,
+            created_at: now(),
+            created_at_end: now(),
+            name: innerName ? `tracked(${innerName})` : `tracked(${entity.id})`,
+            obs_ref: entity.stable_ref,
+          }
+          observableIdMap.set(wrapper, entity.id)
         }
         break
       }

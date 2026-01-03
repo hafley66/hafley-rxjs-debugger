@@ -216,16 +216,14 @@ describe("__$ HMR runtime", () => {
   })
 
   it("prepends subscription context to track path when inside send callback", () => {
-    // Wrap outer observable in __$ so it has a track (required for send stack to work)
-    __$("outer", () => proxy.of(1))
+    // Wrap outer observable in __$ - returns tracked wrapper
+    const outer$ = __$("outer", () => proxy.of(1))
     let innerTrackId: string | undefined
     let sendStackDuringCallback: typeof state$.value.stack.send = []
-
-    // Get the raw observable to subscribe to it with tracking
-    const outerEntityId = state$.value.store.hmr_track["outer"].entity_id
-    const rawOuter$ = state$.value.store.observable[outerEntityId].obs_ref?.deref()
-
-    rawOuter$!.subscribe(() => {
+    const vals: any[] = []
+    // Subscribe to the wrapper (what user code actually does)
+    outer$.subscribe(next => {
+      vals.push(next)
       // Capture send stack during callback
       sendStackDuringCallback = [...state$.value.stack.send]
       // This __$ call happens during send - should get subscription context
@@ -234,34 +232,76 @@ describe("__$ HMR runtime", () => {
         return proxy.of(2)
       })
     })
+    expect(vals).toMatchInlineSnapshot(`
+      [
+        1,
+      ]
+    `)
 
     // Verify send stack was populated during callback
-    expect(sendStackDuringCallback.length).toBe(1)
-    expect(sendStackDuringCallback[0].observable_id).toBe(outerEntityId)
+    expect(sendStackDuringCallback).toMatchInlineSnapshot(`
+      [
+        {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "10",
+          "observable_id": "outer",
+          "subscription_id": "9",
+          "type": "next",
+          "value": 1,
+        },
+        {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "11",
+          "observable_id": "outer",
+          "subscription_id": "8",
+          "type": "next",
+          "value": 1,
+        },
+        {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "12",
+          "observable_id": "outer",
+          "subscription_id": "7",
+          "type": "next",
+          "value": 1,
+        },
+        {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "13",
+          "observable_id": "outer",
+          "subscription_id": "6",
+          "type": "next",
+          "value": 1,
+        },
+      ]
+    `)
+    expect(sendStackDuringCallback[0].observable_id).toBe("outer")
 
     // Verify track was stored with subscription context prefix
-    const subId = sendStackDuringCallback[0].subscription_id
     expect({ innerTrackId, tracks: Object.keys(state$.value.store.hmr_track) }).toMatchInlineSnapshot(`
       {
-        "innerTrackId": "$ref[0]:subscription[6]:inner",
+        "innerTrackId": "$ref[outer]:subscription[6]:inner",
         "tracks": [
           "outer",
-          "$ref[0]:subscription[6]:inner",
+          "$ref[outer]:subscription[6]:inner",
         ],
       }
     `)
   })
 
   it("nested child $ tracker also gets subscription context", () => {
-    // Wrap outer observable in __$ so it has a track (required for send stack)
-    __$("parent", () => proxy.of(1))
-    const parentEntityId = state$.value.store.hmr_track["parent"].entity_id
-    const rawParent$ = state$.value.store.observable[parentEntityId].obs_ref?.deref()
+    // Wrap outer observable in __$ - returns tracked wrapper
+    const parent$ = __$("parent", () => proxy.of(1))
 
     let sendStackDuringCallback: typeof state$.value.stack.send = []
     let hmrTrackStackDuringCallback: typeof state$.value.stack.hmr_track = []
 
-    rawParent$!.subscribe(() => {
+    // Subscribe to the wrapper (what user code actually does)
+    parent$.subscribe(() => {
       sendStackDuringCallback = [...state$.value.stack.send]
       hmrTrackStackDuringCallback = [...state$.value.stack.hmr_track]
       __$("level1", $ => {
@@ -278,14 +318,18 @@ describe("__$ HMR runtime", () => {
         "hmrTrackStack": [
           "parent",
           "parent",
+          "parent",
+          "parent",
         ],
         "sendStack": [
+          "9",
+          "8",
           "7",
           "6",
         ],
         "tracks": [
           "parent",
-          "$ref[0]:subscription[6]:level1:level2",
+          "$ref[parent]:subscription[6]:level1:level2",
         ],
       }
     `)

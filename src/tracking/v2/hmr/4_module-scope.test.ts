@@ -192,36 +192,34 @@ describe("ModuleScope", () => {
       // Snapshot the store to understand current behavior
       // Filter to just the tracks from this test
       const relevantTracks = Object.fromEntries(
-        Object.entries(state$.value.store.hmr_track).filter(
-          ([k]) => k.includes("fetch$") || k.includes("inner"),
-        ),
+        Object.entries(state$.value.store.hmr_track).filter(([k]) => k.includes("fetch$") || k.includes("inner")),
       )
       expect(relevantTracks).toMatchInlineSnapshot(`
         {
           "$ref[0]:subscription[38]:inner": {
             "created_at": 0,
             "created_at_end": 0,
-            "entity_id": "41",
+            "entity_id": "39",
             "entity_type": "observable",
             "id": "$ref[0]:subscription[38]:inner",
             "index": 0,
-            "module_id": undefined,
-            "module_version": undefined,
-            "parent_track_id": undefined,
+            "module_id": "file:///defer-test.ts",
+            "module_version": 1,
+            "parent_track_id": "fetch$",
             "prev_entity_ids": [],
             "stable_ref": WeakRef {},
             "version": 0,
           },
-          "$ref[0]:subscription[6]:inner": {
+          "$ref[0]:subscription[7]:inner": {
             "created_at": 0,
             "created_at_end": 0,
-            "entity_id": "9",
+            "entity_id": "8",
             "entity_type": "observable",
-            "id": "$ref[0]:subscription[6]:inner",
+            "id": "$ref[0]:subscription[7]:inner",
             "index": 0,
-            "module_id": undefined,
-            "module_version": undefined,
-            "parent_track_id": undefined,
+            "module_id": "file:///defer-test.ts",
+            "module_version": 1,
+            "parent_track_id": "fetch$",
             "prev_entity_ids": [],
             "stable_ref": WeakRef {},
             "version": 0,

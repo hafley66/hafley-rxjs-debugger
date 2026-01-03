@@ -42,13 +42,10 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
   // Use send context if in a callback, otherwise use subscription context if in a factory (like defer)
   const subscriptionContext = send?.subscription_id ?? sub?.id
   const observableContext = send?.observable_id ?? sub?.observable_id
-  console.log("[__$] location:", location, "send:", !!send, "sub:", !!sub, "hasPrefix:", hasSubscriptionPrefix)
-  console.log("[__$] subscriptionContext:", subscriptionContext, "observableContext:", observableContext)
   const effectiveLocation =
     subscriptionContext && observableContext && !hasSubscriptionPrefix
       ? `$ref[${observableContext}]:subscription[${subscriptionContext}]:${location}`
       : location
-  console.log("[__$] effectiveLocation:", effectiveLocation)
 
   emit({ type: "track-call", id: effectiveLocation })
 
