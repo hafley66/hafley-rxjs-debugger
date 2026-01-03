@@ -196,32 +196,32 @@ describe("ModuleScope", () => {
       )
       expect(relevantTracks).toMatchInlineSnapshot(`
         {
-          "$ref[3]:subscription[33]:inner": {
+          "$ref[3]:subscription[20]:inner": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "36",
+            "id": "22",
             "index": 0,
-            "key": "$ref[3]:subscription[33]:inner",
+            "key": "$ref[3]:subscription[20]:inner",
             "module_id": "file:///defer-test.ts",
             "module_version": 1,
-            "mutable_observable_id": "37",
+            "mutable_observable_id": "23",
             "parent_track_id": "0",
             "prev_observable_ids": [],
-            "stable_observable_id": "39",
+            "stable_observable_id": "25",
             "version": 0,
           },
-          "$ref[3]:subscription[5]:inner": {
+          "$ref[3]:subscription[4]:inner": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "8",
+            "id": "6",
             "index": 0,
-            "key": "$ref[3]:subscription[5]:inner",
+            "key": "$ref[3]:subscription[4]:inner",
             "module_id": "file:///defer-test.ts",
             "module_version": 1,
-            "mutable_observable_id": "9",
+            "mutable_observable_id": "7",
             "parent_track_id": "0",
             "prev_observable_ids": [],
-            "stable_observable_id": "11",
+            "stable_observable_id": "9",
             "version": 0,
           },
           "fetch$": {

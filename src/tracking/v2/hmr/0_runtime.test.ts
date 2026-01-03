@@ -74,10 +74,10 @@ describe("__$ HMR runtime", () => {
         "key": "test:pipe",
         "module_id": undefined,
         "module_version": undefined,
-        "mutable_observable_id": "19",
+        "mutable_observable_id": "17",
         "parent_track_id": undefined,
         "prev_observable_ids": [],
-        "stable_observable_id": "20",
+        "stable_observable_id": "18",
         "version": 0,
       }
     `)
@@ -250,12 +250,8 @@ describe("__$ HMR runtime", () => {
         "hmrTrackStack": [
           "0",
           "0",
-          "0",
-          "0",
         ],
         "sendStack": [
-          "7",
-          "6",
           "5",
           "4",
         ],

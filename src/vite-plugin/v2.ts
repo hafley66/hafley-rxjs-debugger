@@ -260,7 +260,7 @@ const ESM_PATTERN =
 const TS_PATTERN =
   /(constructor\s*\(\s*subscribe\?\s*:\s*\([^)]+\)\s*=>\s*TeardownLogic\s*\)\s*\{)(\s*)(if\s*\(\s*subscribe\s*\)\s*\{\s*this\._subscribe\s*=\s*subscribe;\s*\})(\s*)(\})/
 
-function patchWithRegex(code: string, patchPath: string, pattern: RegExp) {
+function patchWithRegex(code: string, patchPath: string, pattern: RegExp, iifeEndPattern?: RegExp) {
   const patched = code.replace(pattern, (_match, open, ws1, body, ws2, close) => {
     return `${open}${CONSTRUCTOR_START}${ws1}${body}${CONSTRUCTOR_END}${ws2}${close}`
   })
@@ -270,12 +270,27 @@ function patchWithRegex(code: string, patchPath: string, pattern: RegExp) {
     return null
   }
 
-  const result = IMPORT_PATCH(patchPath) + patched + PATCH_CALL
+  // Insert PATCH_CALL right after Observable class definition (IIFE end)
+  // This ensures patchObservable runs immediately when the class is defined
+  let withPatch: string
+  if (iifeEndPattern) {
+    // For IIFE style (esm5): insert after }());
+    withPatch = patched.replace(iifeEndPattern, `$&${PATCH_CALL}`)
+  } else {
+    // For class style (esm/ts): append at end
+    withPatch = patched + PATCH_CALL
+  }
+
+  const result = IMPORT_PATCH(patchPath) + withPatch
   return { code: result, map: null }
 }
 
+// Pattern to find end of Observable IIFE: }());
+// This is where we insert PATCH_CALL so it runs immediately after class definition
+const ES5_IIFE_END = /(\}\(\)\);)/
+
 function patchEs5(code: string, patchPath: string) {
-  return patchWithRegex(code, patchPath, ES5_PATTERN)
+  return patchWithRegex(code, patchPath, ES5_PATTERN, ES5_IIFE_END)
 }
 
 function patchEsm(code: string, patchPath: string) {

@@ -188,12 +188,12 @@ describe("Class proxy events", () => {
             "owner_id": "0",
             "path": "$args.0",
           },
-          "52": {
+          "40": {
             "created_at": 2000,
-            "id": "52",
+            "id": "40",
             "is_function": false,
-            "observable_id": "51",
-            "owner_id": "51",
+            "observable_id": "39",
+            "owner_id": "39",
             "path": "$args.0",
             "value": true,
           },
@@ -241,27 +241,27 @@ describe("Class proxy events", () => {
           },
         },
         "arg_call": {
-          "49": {
+          "37": {
             "arg_id": "9",
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "49",
+            "id": "37",
             "input_values": [
               1,
             ],
-            "observable_id": "51",
-            "subscription_id": "28",
+            "observable_id": "39",
+            "subscription_id": "24",
           },
-          "50": {
+          "38": {
             "arg_id": "6",
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "50",
+            "id": "38",
             "input_values": [
               1,
             ],
-            "observable_id": "51",
-            "subscription_id": "28",
+            "observable_id": "39",
+            "subscription_id": "24",
           },
         },
         "hmr_module": {},
@@ -274,24 +274,24 @@ describe("Class proxy events", () => {
             "name": "from($ref[0])",
             "obs_ref": WeakRef {},
           },
-          "21": {
+          "20": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "21",
+            "id": "20",
             "name": "from($ref[0]).repeat({count:2,delay:fn})",
             "obs_ref": WeakRef {},
           },
-          "24": {
+          "22": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "24",
+            "id": "22",
             "name": "from($ref[0]).repeat({count:2,delay:fn}).tap({complete:fn,error:fn,next:fn})",
             "obs_ref": WeakRef {},
           },
-          "51": {
+          "39": {
             "created_at": 2000,
             "created_at_end": 2000,
-            "id": "51",
+            "id": "39",
             "name": "of(true)",
             "obs_ref": WeakRef {},
           },
@@ -302,40 +302,20 @@ describe("Class proxy events", () => {
             "created_at_end": 1000,
             "id": "19",
             "index": 0,
-            "operator_fun_id": "UNKNOWN",
-            "pipe_id": "4",
-            "source_observable_id": "0",
-            "target_observable_id": "21",
-          },
-          "20": {
-            "created_at": 1000,
-            "created_at_end": 1000,
-            "id": "20",
-            "index": 0,
             "operator_fun_id": "5",
             "pipe_id": "4",
             "source_observable_id": "0",
-            "target_observable_id": "21",
+            "target_observable_id": "20",
           },
-          "22": {
+          "21": {
             "created_at": 1000,
             "created_at_end": 1000,
-            "id": "22",
-            "index": 1,
-            "operator_fun_id": "UNKNOWN",
-            "pipe_id": "4",
-            "source_observable_id": "21",
-            "target_observable_id": "24",
-          },
-          "23": {
-            "created_at": 1000,
-            "created_at_end": 1000,
-            "id": "23",
+            "id": "21",
             "index": 1,
             "operator_fun_id": "11",
             "pipe_id": "4",
-            "source_observable_id": "21",
-            "target_observable_id": "24",
+            "source_observable_id": "20",
+            "target_observable_id": "22",
           },
         },
         "operator_fun": {
@@ -369,103 +349,58 @@ describe("Class proxy events", () => {
             "created_at": 1000,
             "created_at_end": 1000,
             "id": "4",
-            "observable_id": "24",
+            "observable_id": "22",
             "parent_observable_id": "0",
           },
         },
         "send": {},
         "subscription": {
-          "25": {
+          "23": {
             "created_at": 1000,
             "created_at_end": 5000,
+            "id": "23",
+            "is_sync": false,
+            "module_id": undefined,
+            "observable_id": "22",
+            "parent_subscription_id": undefined,
+          },
+          "24": {
+            "created_at": 1000,
+            "created_at_end": 5000,
+            "id": "24",
+            "is_sync": false,
+            "module_id": undefined,
+            "observable_id": "20",
+            "parent_subscription_id": "23",
+          },
+          "25": {
+            "created_at": 1000,
+            "created_at_end": 2000,
             "id": "25",
             "is_sync": false,
             "module_id": undefined,
-            "observable_id": "24",
-            "parent_subscription_id": undefined,
-          },
-          "26": {
-            "created_at": 1000,
-            "created_at_end": 5000,
-            "id": "26",
-            "is_sync": false,
-            "module_id": undefined,
-            "observable_id": "24",
-            "parent_subscription_id": "25",
-          },
-          "27": {
-            "created_at": 1000,
-            "created_at_end": 5000,
-            "id": "27",
-            "is_sync": false,
-            "module_id": undefined,
-            "observable_id": "21",
-            "parent_subscription_id": "26",
-          },
-          "28": {
-            "created_at": 1000,
-            "created_at_end": 5000,
-            "id": "28",
-            "is_sync": false,
-            "module_id": undefined,
-            "observable_id": "21",
-            "parent_subscription_id": "27",
-          },
-          "29": {
-            "created_at": 1000,
-            "created_at_end": 2000,
-            "id": "29",
-            "is_sync": false,
-            "module_id": undefined,
             "observable_id": "0",
-            "parent_subscription_id": "28",
-          },
-          "30": {
-            "created_at": 1000,
-            "created_at_end": 2000,
-            "id": "30",
-            "is_sync": false,
-            "module_id": undefined,
-            "observable_id": "0",
-            "parent_subscription_id": "29",
+            "parent_subscription_id": "24",
             "unsubscribed_at": 2000,
             "unsubscribed_at_end": 2000,
           },
-          "53": {
+          "41": {
             "created_at": 2000,
             "created_at_end": 5000,
-            "id": "53",
+            "id": "41",
             "is_sync": false,
             "module_id": undefined,
-            "observable_id": "51",
-            "parent_subscription_id": "28",
+            "observable_id": "39",
+            "parent_subscription_id": "24",
           },
-          "54": {
+          "43": {
             "created_at": 2000,
             "created_at_end": 5000,
-            "id": "54",
-            "is_sync": false,
-            "module_id": undefined,
-            "observable_id": "51",
-            "parent_subscription_id": "53",
-          },
-          "57": {
-            "created_at": 2000,
-            "created_at_end": 5000,
-            "id": "57",
+            "id": "43",
             "is_sync": false,
             "module_id": undefined,
             "observable_id": "0",
-            "parent_subscription_id": "54",
-          },
-          "58": {
-            "created_at": 2000,
-            "created_at_end": 5000,
-            "id": "58",
-            "is_sync": false,
-            "module_id": undefined,
-            "observable_id": "0",
-            "parent_subscription_id": "57",
+            "parent_subscription_id": "41",
           },
         },
       }
@@ -474,17 +409,15 @@ describe("Class proxy events", () => {
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "from($ref[0])                                                                                                                                                                                                                                            // #0
         .pipe(                                                                                                                                                                                                                                                 // 
-          op(),                                                                                                                                                                                                                                                // #21
-          repeat({count:2,delay:fn})({ delay: () => proxy.of(true), count: 2 }),                                                                                                                                                                               // #21
-          op(),                                                                                                                                                                                                                                                // #24
+          repeat({count:2,delay:fn})({ delay: () => proxy.of(true), count: 2 }),                                                                                                                                                                               // #20
           tap({complete:fn,error:fn,next:fn})({ next: () => {
                   (0,setNow)(index++ * 1e3);
                 }, complete: () => {
                   (0,setNow)(index++ * 1e3);
                 }, error: () => {
                   (0,setNow)(index++ * 1e3);
-                } }),  // #24
-        )                                                                                                                                                                                                                                                      // -> #24"
+                } }),  // #22
+        )                                                                                                                                                                                                                                                      // -> #22"
     `)
   })
 
@@ -742,24 +675,24 @@ describe("Class proxy events", () => {
             "name": "new Observable",
             "obs_ref": WeakRef {},
           },
-          "23": {
+          "22": {
             "created_at": 5000,
             "created_at_end": 5000,
-            "id": "23",
+            "id": "22",
             "name": "new Observable.map(fn)",
+            "obs_ref": WeakRef {},
+          },
+          "24": {
+            "created_at": 5000,
+            "created_at_end": 5000,
+            "id": "24",
+            "name": "new Observable.map(fn).filter(fn)",
             "obs_ref": WeakRef {},
           },
           "26": {
             "created_at": 5000,
             "created_at_end": 5000,
             "id": "26",
-            "name": "new Observable.map(fn).filter(fn)",
-            "obs_ref": WeakRef {},
-          },
-          "29": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "29",
             "name": "new Observable.map(fn).filter(fn).scan(fn,0)",
             "obs_ref": WeakRef {},
           },
@@ -770,60 +703,30 @@ describe("Class proxy events", () => {
             "created_at_end": 5000,
             "id": "21",
             "index": 0,
-            "operator_fun_id": "UNKNOWN",
-            "pipe_id": "1",
-            "source_observable_id": "0",
-            "target_observable_id": "23",
-          },
-          "22": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "22",
-            "index": 0,
             "operator_fun_id": "2",
             "pipe_id": "1",
             "source_observable_id": "0",
-            "target_observable_id": "23",
+            "target_observable_id": "22",
           },
-          "24": {
+          "23": {
             "created_at": 5000,
             "created_at_end": 5000,
-            "id": "24",
+            "id": "23",
             "index": 1,
-            "operator_fun_id": "UNKNOWN",
+            "operator_fun_id": "6",
             "pipe_id": "1",
-            "source_observable_id": "23",
-            "target_observable_id": "26",
+            "source_observable_id": "22",
+            "target_observable_id": "24",
           },
           "25": {
             "created_at": 5000,
             "created_at_end": 5000,
             "id": "25",
-            "index": 1,
-            "operator_fun_id": "6",
-            "pipe_id": "1",
-            "source_observable_id": "23",
-            "target_observable_id": "26",
-          },
-          "27": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "27",
-            "index": 2,
-            "operator_fun_id": "UNKNOWN",
-            "pipe_id": "1",
-            "source_observable_id": "26",
-            "target_observable_id": "29",
-          },
-          "28": {
-            "created_at": 5000,
-            "created_at_end": 5000,
-            "id": "28",
             "index": 2,
             "operator_fun_id": "10",
             "pipe_id": "1",
-            "source_observable_id": "26",
-            "target_observable_id": "29",
+            "source_observable_id": "24",
+            "target_observable_id": "26",
           },
         },
         "operator_fun": {
@@ -875,7 +778,7 @@ describe("Class proxy events", () => {
             "created_at": 2000,
             "created_at_end": 5000,
             "id": "1",
-            "observable_id": "29",
+            "observable_id": "26",
             "parent_observable_id": "0",
           },
         },
@@ -887,15 +790,12 @@ describe("Class proxy events", () => {
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "new Observable                                                         // #0
         .pipe(                                                               // 
-          op(),                                                              // #23
-          map(fn)((it2) => it2 * 2),                                         // #23
-          op(),                                                              // #26
-          filter(fn)((it2) => it2 !== 0),                                    // #26
-          op(),                                                              // #29
+          map(fn)((it2) => it2 * 2),                                         // #22
+          filter(fn)((it2) => it2 !== 0),                                    // #24
           scan(fn,0)((sum, it2) => {
               return sum + it2;
-            }, 0),  // #29
-        )                                                                    // -> #29"
+            }, 0),  // #26
+        )                                                                    // -> #26"
     `)
   })
 
@@ -917,22 +817,22 @@ describe("Class proxy events", () => {
           "created_at_end": 0,
           "id": "9",
           "index": 0,
-          "operator_fun_id": "UNKNOWN",
+          "operator_fun_id": "5",
           "pipe_id": "4",
           "source_observable_id": "0",
-          "target_observable_id": "11",
+          "target_observable_id": "10",
         },
         "pipeEntry": {
           "created_at": 0,
           "created_at_end": 0,
           "id": "4",
-          "observable_id": "11",
+          "observable_id": "10",
           "parent_observable_id": "0",
         },
         "pipeOutputObs": {
           "created_at": 0,
           "created_at_end": 0,
-          "id": "11",
+          "id": "10",
           "name": "of(1,2,3).map(fn)",
           "obs_ref": WeakRef {},
         },
@@ -946,7 +846,7 @@ describe("Class proxy events", () => {
         "targetObs": {
           "created_at": 0,
           "created_at_end": 0,
-          "id": "11",
+          "id": "10",
           "name": "of(1,2,3).map(fn)",
           "obs_ref": WeakRef {},
         },
@@ -963,9 +863,8 @@ describe("Class proxy events", () => {
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "of(5)                                                            // #0
         .pipe(                                                         // 
-          op(),                                                        // #9
-          switchMap(fn)((val, index) => proxy.of(index + "/" + val)),  // #9
-        )                                                              // -> #9"
+          switchMap(fn)((val, index) => proxy.of(index + "/" + val)),  // #8
+        )                                                              // -> #8"
     `)
 
     expect(state$.value.store).toMatchInlineSnapshot(`
@@ -980,12 +879,12 @@ describe("Class proxy events", () => {
             "path": "$args.0",
             "value": 5,
           },
-          "19": {
+          "15": {
             "created_at": 0,
-            "id": "19",
+            "id": "15",
             "is_function": false,
-            "observable_id": "18",
-            "owner_id": "18",
+            "observable_id": "14",
+            "owner_id": "14",
             "path": "$args.0",
             "value": "0/5",
           },
@@ -1025,29 +924,29 @@ describe("Class proxy events", () => {
           },
         },
         "arg_call": {
-          "16": {
+          "12": {
             "arg_id": "6",
             "created_at": 0,
             "created_at_end": 0,
-            "id": "16",
+            "id": "12",
             "input_values": [
               5,
               0,
             ],
-            "observable_id": "18",
-            "subscription_id": "13",
+            "observable_id": "14",
+            "subscription_id": "10",
           },
-          "17": {
+          "13": {
             "arg_id": "4",
             "created_at": 0,
             "created_at_end": 0,
-            "id": "17",
+            "id": "13",
             "input_values": [
               5,
               0,
             ],
-            "observable_id": "18",
-            "subscription_id": "13",
+            "observable_id": "14",
+            "subscription_id": "10",
           },
         },
         "hmr_module": {},
@@ -1060,17 +959,17 @@ describe("Class proxy events", () => {
             "name": "of(5)",
             "obs_ref": WeakRef {},
           },
-          "18": {
+          "14": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "18",
+            "id": "14",
             "name": "of("0/5")",
             "obs_ref": WeakRef {},
           },
-          "9": {
+          "8": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "9",
+            "id": "8",
             "name": "of(5).switchMap(fn)",
             "obs_ref": WeakRef {},
           },
@@ -1081,20 +980,10 @@ describe("Class proxy events", () => {
             "created_at_end": 0,
             "id": "7",
             "index": 0,
-            "operator_fun_id": "UNKNOWN",
-            "pipe_id": "2",
-            "source_observable_id": "0",
-            "target_observable_id": "9",
-          },
-          "8": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "8",
-            "index": 0,
             "operator_fun_id": "3",
             "pipe_id": "2",
             "source_observable_id": "0",
-            "target_observable_id": "9",
+            "target_observable_id": "8",
           },
         },
         "operator_fun": {
@@ -1116,7 +1005,7 @@ describe("Class proxy events", () => {
             "created_at": 0,
             "created_at_end": 0,
             "id": "2",
-            "observable_id": "9",
+            "observable_id": "8",
             "parent_observable_id": "0",
           },
         },
@@ -1128,53 +1017,26 @@ describe("Class proxy events", () => {
             "id": "10",
             "is_sync": false,
             "module_id": undefined,
-            "observable_id": "9",
-            "parent_subscription_id": undefined,
+            "observable_id": "0",
+            "parent_subscription_id": "9",
           },
-          "11": {
+          "16": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "11",
+            "id": "16",
             "is_sync": false,
             "module_id": undefined,
-            "observable_id": "9",
+            "observable_id": "14",
             "parent_subscription_id": "10",
           },
-          "12": {
+          "9": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "12",
+            "id": "9",
             "is_sync": false,
             "module_id": undefined,
-            "observable_id": "0",
-            "parent_subscription_id": "11",
-          },
-          "13": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "13",
-            "is_sync": false,
-            "module_id": undefined,
-            "observable_id": "0",
-            "parent_subscription_id": "12",
-          },
-          "20": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "20",
-            "is_sync": false,
-            "module_id": undefined,
-            "observable_id": "18",
-            "parent_subscription_id": "13",
-          },
-          "21": {
-            "created_at": 0,
-            "created_at_end": 0,
-            "id": "21",
-            "is_sync": false,
-            "module_id": undefined,
-            "observable_id": "18",
-            "parent_subscription_id": "20",
+            "observable_id": "8",
+            "parent_subscription_id": undefined,
           },
         },
       }
@@ -1189,11 +1051,10 @@ describe("Class proxy events", () => {
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "of(1,2)         // #0
         .pipe(        // 
-          op(),       // #8
-          share()(),  // #8
-        )             // -> #8
-      new Subject     // #11
-      new Subject     // #36"
+          share()(),  // #7
+        )             // -> #7
+      new Subject     // #9
+      new Subject     // #22"
     `)
   })
 
@@ -1204,14 +1065,12 @@ describe("Class proxy events", () => {
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "of(1)                          // #0
         .pipe(                       // 
-          op(),                      // #9
-          map(fn)((x) => x * 2),     // #9
-        )                            // -> #9
-      of(2)                          // #10
+          map(fn)((x) => x * 2),     // #8
+        )                            // -> #8
+      of(2)                          // #9
         .pipe(                       // 
-          op(),                      // #19
-          filter(fn)((x) => x > 0),  // #19
-        )                            // -> #19"
+          filter(fn)((x) => x > 0),  // #17
+        )                            // -> #17"
     `)
   })
 
@@ -1222,45 +1081,42 @@ describe("Class proxy events", () => {
 
     expect(state$.value.store.pipe).toMatchInlineSnapshot(`
       {
-        "12": {
+        "11": {
           "created_at": 0,
           "created_at_end": 0,
-          "id": "12",
-          "observable_id": "19",
-          "parent_observable_id": "10",
+          "id": "11",
+          "observable_id": "17",
+          "parent_observable_id": "9",
+        },
+        "18": {
+          "created_at": 0,
+          "created_at_end": 0,
+          "id": "18",
+          "observable_id": "24",
+          "parent_observable_id": "8",
         },
         "2": {
           "created_at": 0,
           "created_at_end": 0,
           "id": "2",
-          "observable_id": "9",
+          "observable_id": "8",
           "parent_observable_id": "0",
-        },
-        "20": {
-          "created_at": 0,
-          "created_at_end": 0,
-          "id": "20",
-          "observable_id": "27",
-          "parent_observable_id": "9",
         },
       }
     `)
     expect(renderStaticTree(state$.value.store)).toMatchInlineSnapshot(`
       "of(1)                          // #0
         .pipe(                       // 
-          op(),                      // #9
-          map(fn)((x) => x * 2),     // #9
-        )                            // -> #9
-      of(2)                          // #10
+          map(fn)((x) => x * 2),     // #8
+        )                            // -> #8
+      of(2)                          // #9
         .pipe(                       // 
-          op(),                      // #19
-          filter(fn)((x) => x > 0),  // #19
-        )                            // -> #19
-      #9                             // 
+          filter(fn)((x) => x > 0),  // #17
+        )                            // -> #17
+      #8                             // 
         .pipe(                       // 
-          op(),                      // #27
-          switchMap(fn)(() => b$),   // #27
-        )                            // -> #27"
+          switchMap(fn)(() => b$),   // #24
+        )                            // -> #24"
     `)
   })
 })
@@ -1316,15 +1172,7 @@ describe("06_queries", () => {
       [
         {
           "index": 0,
-          "operator_fun_id": "UNKNOWN",
-        },
-        {
-          "index": 0,
           "operator_fun_id": "3",
-        },
-        {
-          "index": 1,
-          "operator_fun_id": "UNKNOWN",
         },
         {
           "index": 1,
@@ -1373,8 +1221,8 @@ describe("06_queries", () => {
           "parent": undefined,
         },
         {
-          "id": "10",
-          "observable_id": "8",
+          "id": "7",
+          "observable_id": "5",
           "parent": undefined,
         },
       ]
@@ -1394,8 +1242,8 @@ describe("06_queries", () => {
     expect(children.map(c => ({ id: c.id, parent: c.parent_subscription_id }))).toMatchInlineSnapshot(`
       [
         {
-          "id": "11",
-          "parent": "10",
+          "id": "10",
+          "parent": "9",
         },
       ]
     `)
@@ -1435,7 +1283,7 @@ describe("06_queries", () => {
     expect(dynamicObs.map(o => ({ id: o!.id, name: o!.name }))).toMatchInlineSnapshot(`
       [
         {
-          "id": "18",
+          "id": "14",
           "name": "of(10)",
         },
       ]
@@ -1476,8 +1324,8 @@ describe("06_queries", () => {
     expect({ id: found!.id, arg_id: found!.arg_id, observable_id: found!.observable_id }).toMatchInlineSnapshot(`
       {
         "arg_id": "6",
-        "id": "16",
-        "observable_id": "18",
+        "id": "12",
+        "observable_id": "14",
       }
     `)
   })

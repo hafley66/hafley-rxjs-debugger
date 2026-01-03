@@ -111,13 +111,20 @@ function normalizeObserver(args: any[]): { next: (v: any) => void; error: (e: an
     complete: typeof args[2] === "function" ? args[2] : noop,
   }
 }
+// Marker to prevent double-patching the same prototype
+const PATCHED_PROTO = Symbol("rxjs-debugger-patched-prototype")
 
 /**
  * Patches Observable.prototype with tracking for pipe/subscribe.
  * Must be called with the Observable class after it's defined.
+ * Safe to call multiple times - will skip if already patched.
  */
 export function patchObservable(Observable: { prototype: any; create?: any }) {
   const proto = Observable.prototype
+
+  // Skip if already patched
+  if (proto[PATCHED_PROTO]) return
+  proto[PATCHED_PROTO] = true
 
   // TODO: lift creates lots of intermediate observables - may need to re-enable if noisy
   // const originalLift = proto.lift
@@ -157,7 +164,7 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
       emit({ type: "pipe-get", id, observable_id })
       return function patchedPipe(this: Observable<any>, ...args: any[]) {
         if (!isEnabled()) {
-          return originalPipe.apply(this, args)
+          return originalPipe.apply(this, args as any)
         }
 
         const ind = 0
@@ -183,7 +190,7 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
           }
         })
 
-        const out = originalPipe.apply(this, decoratedOps)
+        const out = originalPipe.apply(this, decoratedOps as any)
         emit({
           observable_id: observableIdMap.get(out) ?? "UNKNOWN",
           type: "pipe-call-return",
@@ -199,7 +206,7 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
   proto.subscribe = function patchedSubscribe(...args: any[]) {
     // isEnabled controls instance creation - when false, subscription gets __id__ = ""
     if (!isEnabled()) {
-      const sub = originalSubscribe.apply(this, args)
+      const sub = originalSubscribe.apply(this, args as any)
       ;(sub as any).__id__ = ""
       return sub
     }
@@ -210,7 +217,7 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
     // Store-based tracking: observable must have truthy __id__ AND exist in store
     // If not in store, this observable was created without __$ tracking - pass through
     if (!obs_id || !store?.observable[obs_id]) {
-      const sub = originalSubscribe.apply(this, args)
+      const sub = originalSubscribe.apply(this, args as any)
       ;(sub as any).__id__ = ""
       return sub
     }
@@ -279,7 +286,7 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
       },
     }
 
-    const sub = originalSubscribe.call(this, wrappedObserver)
+    const sub = originalSubscribe.call(this, wrappedObserver as any)
 
     // Attach __id__ to subscription for easy lookup
     ;(sub as any).__id__ = subscription_id
