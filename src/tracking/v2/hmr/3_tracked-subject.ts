@@ -17,7 +17,7 @@ import { state$$ } from "../03_scan-accumulator"
  * Create a Subject that tracks an hmr_track entry.
  * All methods forward to the current inner Subject based on mutable_observable_id.
  */
-export function trackedSubject<T>(trackPath: string): Subject<T> {
+export function trackedSubject<T>(trackId: string): Subject<T> {
   let lastEntityId: string | undefined
   let currentSubject: Subject<T> | undefined
   let innerSub: Subscription | null = null
@@ -53,7 +53,8 @@ export function trackedSubject<T>(trackPath: string): Subject<T> {
   }
 
   const getCurrentSubject = (): Subject<T> | undefined => {
-    const entityId = state$.value.store.hmr_track[trackPath]?.mutable_observable_id
+    // Lookup by id - O(1)
+    const entityId = state$.value.store.hmr_track[trackId]?.mutable_observable_id
     if (entityId && entityId !== lastEntityId) {
       lastEntityId = entityId
       const obsRecord = state$.value.store.observable[entityId]
@@ -138,7 +139,7 @@ export function trackedSubject<T>(trackPath: string): Subject<T> {
  * Extends trackedSubject pattern with .value and .getValue() forwarding.
  */
 export function trackedBehaviorSubject<T>(
-  trackPath: string,
+  trackId: string,
   initialValue: T,
 ): BehaviorSubject<T> {
   let lastEntityId: string | undefined
@@ -176,7 +177,8 @@ export function trackedBehaviorSubject<T>(
   }
 
   const getCurrentSubject = (): BehaviorSubject<T> | undefined => {
-    const entityId = state$.value.store.hmr_track[trackPath]?.mutable_observable_id
+    // Lookup by id - O(1)
+    const entityId = state$.value.store.hmr_track[trackId]?.mutable_observable_id
     if (entityId && entityId !== lastEntityId) {
       lastEntityId = entityId
       const obsRecord = state$.value.store.observable[entityId]

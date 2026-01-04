@@ -10,7 +10,9 @@
 
 import { BehaviorSubject, Observable, Subject } from "rxjs"
 import { state$, TRACKED_MARKER } from "../00.types"
+import { createId } from "../01_helpers"
 import { emit } from "../01.patch-observable"
+import { findTrackByKey } from "./1_queries"
 import { trackedObservable } from "./2_tracked-observable"
 import { trackedSubject } from "./3_tracked-subject"
 
@@ -44,7 +46,11 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
       ? `$ref[${observableContext}]:subscription[${subscriptionContext}]:${location}`
       : location
 
-  emit({ type: "track-call", id: effectiveLocation })
+  // Check for existing track (HMR re-execution) or generate new surrogate id
+  const existingTrack = findTrackByKey(state$.value, effectiveLocation)
+  const trackId = existingTrack?.id ?? createId()
+
+  emit({ type: "track-call", id: trackId, key: effectiveLocation })
 
   const $: TrackContext = <V>(name: string, childFn: ($: TrackContext) => V): V => {
     return __$(`${effectiveLocation}:${name}`, childFn)
@@ -69,8 +75,8 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
 
     // If result is a real Subject (not AnonymousSubject from .pipe()), return stable trackedSubject wrapper
     if (isRealSubject(result)) {
-      // Check store first (for HMR re-execution), then stack (for first execution)
-      const trackInStore = state$.value.store.hmr_track[effectiveLocation]
+      // Lookup by surrogate id (O(1)) - store keyed by id
+      const trackInStore = state$.value.store.hmr_track[trackId]
       const trackOnStack = state$.value.stack.hmr_track.at(-1)
       // Capture mutable_observable_id BEFORE creating wrapper
       // (wrapper's constructor-call-return will incorrectly overwrite it)
@@ -79,8 +85,8 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
       const stableId = trackInStore?.stable_observable_id
       let stable = stableId ? state$.value.store.observable[stableId]?.obs_ref?.deref() : undefined
       if (!stable) {
-        // trackedSubject sets TRACKED_MARKER internally
-        stable = trackedSubject(effectiveLocation)
+        // trackedSubject sets TRACKED_MARKER internally - pass track id, not key
+        stable = trackedSubject(trackId)
         // Set stable_observable_id explicitly - TRACKED_MARKER timing doesn't work
         // (constructor-call-return fires before marker is set)
         if (trackOnStack) {
@@ -96,7 +102,8 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
 
     // If result is an Observable (cold), return stable trackedObservable wrapper
     if (result instanceof Observable) {
-      const trackInStore = state$.value.store.hmr_track[effectiveLocation]
+      // Lookup by surrogate id (O(1)) - store keyed by id
+      const trackInStore = state$.value.store.hmr_track[trackId]
       const trackOnStack = state$.value.stack.hmr_track.at(-1)
       // Capture mutable_observable_id BEFORE creating wrapper
       const mutableIdBeforeWrapper = trackOnStack?.mutable_observable_id
@@ -104,8 +111,8 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
       const stableId = trackInStore?.stable_observable_id
       let stable = stableId ? state$.value.store.observable[stableId]?.obs_ref?.deref() : undefined
       if (!stable) {
-        // trackedObservable sets TRACKED_MARKER internally
-        stable = trackedObservable(effectiveLocation)
+        // trackedObservable sets TRACKED_MARKER internally - pass track id, not key
+        stable = trackedObservable(trackId)
         // Set stable_observable_id explicitly - TRACKED_MARKER timing doesn't work
         // (constructor-call-return fires before marker is set)
         if (trackOnStack) {
@@ -121,6 +128,6 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
 
     return result
   } finally {
-    emit({ type: "track-call-return", id: effectiveLocation })
+    emit({ type: "track-call-return", id: trackId })
   }
 }

@@ -17,9 +17,11 @@ import { state$$ } from "../03_scan-accumulator"
  * When mutable_observable_id changes, unsubs old source, subs to new source.
  * User subscriptions see seamless switch.
  */
-export function trackedObservable<T>(trackPath: string): Observable<T> {
+export function trackedObservable<T>(trackId: string): Observable<T> {
   // Capture module context at creation time for later restoration
-  const track = state$.value.store.hmr_track[trackPath] ?? state$.value.stack.hmr_track.find(t => t.key === trackPath)
+  // Lookup by id - O(1). Fall back to stack for first execution (before track-call-return)
+  const track = state$.value.store.hmr_track[trackId]
+    ?? state$.value.stack.hmr_track.find(t => t.id === trackId)
   const moduleId = track?.module_id
 
   const obs = new Observable<T>(subscriber => {
@@ -42,7 +44,7 @@ export function trackedObservable<T>(trackPath: string): Observable<T> {
         // Restore module and track context so defer factories get proper tracking
         // Track context is needed for shouldEmit to allow subscribe-call events
         // IMPORTANT: Create a shallow copy of track to avoid mutating the stored track
-        const storedTrack = state$.value.store.hmr_track[trackPath]
+        const storedTrack = state$.value.store.hmr_track[trackId]
         const trackCopy = storedTrack ? { ...storedTrack } : undefined
         const module = moduleId ? state$.value.store.hmr_module[moduleId] : undefined
 
@@ -74,10 +76,10 @@ export function trackedObservable<T>(trackPath: string): Observable<T> {
 
     // Check current state immediately
     // First check store, then check stack (track might still be on stack during construction)
-    let initialEntityId = state$.value.store.hmr_track[trackPath]?.mutable_observable_id
+    let initialEntityId = state$.value.store.hmr_track[trackId]?.mutable_observable_id
     if (!initialEntityId) {
       // Track might be on stack (we're inside __$ call, before track-call-return)
-      const stackTrack = state$.value.stack.hmr_track.find(t => t.key === trackPath)
+      const stackTrack = state$.value.stack.hmr_track.find(t => t.id === trackId)
       initialEntityId = stackTrack?.mutable_observable_id
     }
     if (initialEntityId) {
@@ -88,7 +90,7 @@ export function trackedObservable<T>(trackPath: string): Observable<T> {
     // Only reconnect if mutable_observable_id actually changes (HMR scenario)
     const watchSub = __withNoTrack(() =>
       state$$.subscribe(s => {
-        const entityId = s.store.hmr_track[trackPath]?.mutable_observable_id
+        const entityId = s.store.hmr_track[trackId]?.mutable_observable_id
         if (entityId && entityId !== lastEntityId) {
           connectToSource(entityId)
         }

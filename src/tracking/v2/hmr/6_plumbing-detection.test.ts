@@ -12,6 +12,7 @@ import { _eventBuffer, state$ } from "../00.types"
 import { __$ } from "./0_runtime"
 import "../03_scan-accumulator"
 import { useTrackingTestSetup } from "../0_test-utils"
+import { findTrackByKey } from "./1_queries"
 
 describe("plumbing detection", () => {
   useTrackingTestSetup()
@@ -57,8 +58,8 @@ describe("plumbing detection", () => {
       eventSummary,
       values,
       subscriptionCount: Object.keys(state$.value.store.subscription).length,
-      trackKeys: Object.keys(state$.value.store.hmr_track),
-      track: state$.value.store.hmr_track["test:baseline"],
+      trackKeys: Object.values(state$.value.store.hmr_track).map(t => t.key),
+      track: findTrackByKey(state$.value, "test:baseline"),
     }).toMatchSnapshot()
   })
 
@@ -98,7 +99,7 @@ describe("plumbing detection", () => {
 
     // Check if internal plumbing detection worked
     const subscriptions = Object.values(state$.value.store.subscription)
-    const track = state$.value.store.hmr_track["test:notrack"]
+    const track = findTrackByKey(state$.value, "test:notrack")
 
     // The wrapper subscription should exist (user → wrapper)
     // The inner subscription should NOT exist (wrapper → inner = internal plumbing)
@@ -112,7 +113,7 @@ describe("plumbing detection", () => {
       eventSummary,
       values,
       subscriptionCount: Object.keys(state$.value.store.subscription).length,
-      trackKeys: Object.keys(state$.value.store.hmr_track),
+      trackKeys: Object.values(state$.value.store.hmr_track).map(t => t.key),
       track,
       detection: {
         wrapperSubExists: !!wrapperSub,
@@ -132,7 +133,7 @@ describe("plumbing detection", () => {
       return rawSubject
     })
 
-    const track = state$.value.store.hmr_track["test:verify"]
+    const track = findTrackByKey(state$.value, "test:verify")
 
     // Verify the track has both IDs set correctly
     expect({
@@ -159,7 +160,7 @@ describe("plumbing detection", () => {
       (e): e is Extract<typeof e, { type: "subscribe-call" }> => e.type === "subscribe-call",
     )
 
-    const track = state$.value.store.hmr_track["test:stack"]
+    const track = findTrackByKey(state$.value, "test:stack")
 
     // Subscribe to wrapper - this should trigger both wrapper and inner subscribe-call events
     wrapper.subscribe(() => {})

@@ -85,8 +85,8 @@ export type ObservableEvent =
       | { type: "unsubscribe-call"; args: any[]; index: number }
       | { type: "unsubscribe-call-return" }
     ))
-  // HMR track events
-  | { type: "track-call"; id: string }
+  // HMR track events - id is surrogate, key is location string
+  | { type: "track-call"; id: string; key: string }
   | { type: "track-call-return"; id: string }
   // HMR module events
   | { type: "hmr-module-call"; id: string; url: string }

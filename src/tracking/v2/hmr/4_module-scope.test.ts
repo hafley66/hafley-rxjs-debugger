@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import { useTrackingTestSetup } from "../0_test-utils"
 import { state$ } from "../00.types"
 import { defer, of } from "../04.operators"
+import { findTrackByKey } from "./1_queries"
 import { _rxjs_debugger_module_start } from "./4_module-scope"
 
 describe("ModuleScope", () => {
@@ -55,7 +56,7 @@ describe("ModuleScope", () => {
       __$("myObs", () => new Subject())
       __$.end()
 
-      expect(state$.value.store.hmr_track["myObs"]?.module_id).toBe("file:///c.ts")
+      expect(findTrackByKey(state$.value, "myObs")?.module_id).toBe("file:///c.ts")
     })
   })
 
@@ -67,8 +68,8 @@ describe("ModuleScope", () => {
       })
       __$.end()
 
-      expect(state$.value.store.hmr_track["outer:inner"]).toBeDefined()
-      expect(state$.value.store.hmr_track["outer:inner"]?.module_id).toBe("file:///d.ts")
+      expect(findTrackByKey(state$.value, "outer:inner")).toBeDefined()
+      expect(findTrackByKey(state$.value, "outer:inner")?.module_id).toBe("file:///d.ts")
     })
 
     it("deeply nested keys work correctly", () => {
@@ -80,7 +81,7 @@ describe("ModuleScope", () => {
       })
       __$.end()
 
-      expect(state$.value.store.hmr_track["a:b:c"]).toBeDefined()
+      expect(findTrackByKey(state$.value, "a:b:c")).toBeDefined()
     })
   })
 
@@ -115,7 +116,10 @@ describe("ModuleScope", () => {
       wrapper2.subscribe({ complete: () => (wrapper2Completed = true) })
 
       // Snapshot before HMR: both tracks exist
-      expect(Object.keys(state$.value.store.hmr_track).filter(k => k.startsWith("orphan_"))).toMatchInlineSnapshot(`
+      const trackKeysBefore = Object.values(state$.value.store.hmr_track)
+        .map(t => t.key)
+        .filter(k => k.startsWith("orphan_"))
+      expect(trackKeysBefore).toMatchInlineSnapshot(`
         [
           "orphan_obs1",
           "orphan_obs2",
@@ -129,7 +133,10 @@ describe("ModuleScope", () => {
       __$2.end()
 
       // Snapshot after HMR: obs2 deleted, obs1 remains
-      expect(Object.keys(state$.value.store.hmr_track).filter(k => k.startsWith("orphan_"))).toMatchInlineSnapshot(`
+      const trackKeysAfter = Object.values(state$.value.store.hmr_track)
+        .map(t => t.key)
+        .filter(k => k.startsWith("orphan_"))
+      expect(trackKeysAfter).toMatchInlineSnapshot(`
         [
           "orphan_obs1",
         ]
@@ -190,38 +197,40 @@ describe("ModuleScope", () => {
       expect(innerValues[0]).not.toBe(innerValues[1])
 
       // Snapshot the store to understand current behavior
-      // Filter to just the tracks from this test
+      // Filter to just the tracks from this test - key by track.key for readability
       const relevantTracks = Object.fromEntries(
-        Object.entries(state$.value.store.hmr_track).filter(([k]) => k.includes("fetch$") || k.includes("inner")),
+        Object.values(state$.value.store.hmr_track)
+          .filter(t => t.key.includes("fetch$") || t.key.includes("inner"))
+          .map(t => [t.key, t]),
       )
       expect(relevantTracks).toMatchInlineSnapshot(`
         {
-          "$ref[3]:subscription[20]:inner": {
+          "$ref[3]:subscription[24]:inner": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "22",
+            "id": "26",
             "index": 0,
-            "key": "$ref[3]:subscription[20]:inner",
+            "key": "$ref[3]:subscription[24]:inner",
             "module_id": "file:///defer-test.ts",
             "module_version": 1,
-            "mutable_observable_id": "23",
+            "mutable_observable_id": "27",
             "parent_track_id": "0",
             "prev_observable_ids": [],
-            "stable_observable_id": "25",
+            "stable_observable_id": "29",
             "version": 0,
           },
-          "$ref[3]:subscription[4]:inner": {
+          "$ref[3]:subscription[8]:inner": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "6",
+            "id": "10",
             "index": 0,
-            "key": "$ref[3]:subscription[4]:inner",
+            "key": "$ref[3]:subscription[8]:inner",
             "module_id": "file:///defer-test.ts",
             "module_version": 1,
-            "mutable_observable_id": "7",
+            "mutable_observable_id": "11",
             "parent_track_id": "0",
             "prev_observable_ids": [],
-            "stable_observable_id": "9",
+            "stable_observable_id": "13",
             "version": 0,
           },
           "fetch$": {

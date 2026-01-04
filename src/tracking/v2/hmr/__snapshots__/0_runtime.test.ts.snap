@@ -4,7 +4,8 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
 {
   "events": [
     {
-      "id": "outer",
+      "id": "0",
+      "key": "outer",
       "type": "track-call",
     },
     {
@@ -25,7 +26,7 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
       "type": "constructor-call-return",
     },
     {
-      "id": "outer",
+      "id": "0",
       "type": "track-call-return",
     },
     {
@@ -69,7 +70,8 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
       "value": 1,
     },
     {
-      "id": "$ref[2]:subscription[3]:inner",
+      "id": "7",
+      "key": "$ref[2]:subscription[3]:inner",
       "type": "track-call",
     },
     {
@@ -90,7 +92,7 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
       "type": "constructor-call-return",
     },
     {
-      "id": "$ref[2]:subscription[3]:inner",
+      "id": "7",
       "type": "track-call-return",
     },
     {
@@ -161,21 +163,7 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
     "arg_call": {},
     "hmr_module": {},
     "hmr_track": {
-      "$ref[2]:subscription[3]:inner": {
-        "created_at": 0,
-        "created_at_end": 0,
-        "id": "7",
-        "index": 0,
-        "key": "$ref[2]:subscription[3]:inner",
-        "module_id": undefined,
-        "module_version": undefined,
-        "mutable_observable_id": "8",
-        "parent_track_id": "0",
-        "prev_observable_ids": [],
-        "stable_observable_id": "9",
-        "version": 0,
-      },
-      "outer": {
+      "0": {
         "created_at": 0,
         "created_at_end": 0,
         "id": "0",
@@ -187,6 +175,20 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
         "parent_track_id": undefined,
         "prev_observable_ids": [],
         "stable_observable_id": "2",
+        "version": 0,
+      },
+      "7": {
+        "created_at": 0,
+        "created_at_end": 0,
+        "id": "7",
+        "index": 0,
+        "key": "$ref[2]:subscription[3]:inner",
+        "module_id": undefined,
+        "module_version": undefined,
+        "mutable_observable_id": "8",
+        "parent_track_id": "0",
+        "prev_observable_ids": [],
+        "stable_observable_id": "9",
         "version": 0,
       },
     },

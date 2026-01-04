@@ -6,6 +6,7 @@ import "../03_scan-accumulator"
 import { useTrackingTestSetup } from "../0_test-utils"
 import { proxy } from "../04.operators"
 import { getDanglingSubscriptions } from "../06_queries"
+import { findTrackByKey } from "./1_queries"
 import { trackedBehaviorSubject, trackedSubject } from "./3_tracked-subject"
 
 describe("__$ HMR runtime", () => {
@@ -14,7 +15,7 @@ describe("__$ HMR runtime", () => {
   it("tracks observable creation", () => {
     __$("test:obs", () => proxy.of(1, 2, 3))
 
-    expect(state$.value.store.hmr_track["test:obs"]).toMatchInlineSnapshot(`
+    expect(findTrackByKey(state$.value, "test:obs")).toMatchInlineSnapshot(`
       {
         "created_at": 0,
         "created_at_end": 0,
@@ -39,7 +40,7 @@ describe("__$ HMR runtime", () => {
 
     expect(state$.value.store.hmr_track).toMatchInlineSnapshot(`
       {
-        "root:child": {
+        "1": {
           "created_at": 0,
           "created_at_end": 0,
           "id": "1",
@@ -65,7 +66,7 @@ describe("__$ HMR runtime", () => {
       ),
     )
 
-    expect(state$.value.store.hmr_track["test:pipe"]).toMatchInlineSnapshot(`
+    expect(findTrackByKey(state$.value, "test:pipe")).toMatchInlineSnapshot(`
       {
         "created_at": 0,
         "created_at_end": 0,
@@ -88,12 +89,12 @@ describe("__$ HMR runtime", () => {
       return (n: number) => proxy.of(n)
     })
 
-    expect(state$.value.store.hmr_track["test:fn"]).toMatchInlineSnapshot(`undefined`)
+    expect(findTrackByKey(state$.value, "test:fn")).toMatchInlineSnapshot(`undefined`)
 
     getObs(1)
     getObs(2)
 
-    expect(state$.value.store.hmr_track["test:fn"]).toMatchInlineSnapshot(`
+    expect(findTrackByKey(state$.value, "test:fn")).toMatchInlineSnapshot(`
       {
         "created_at": 0,
         "created_at_end": 0,
@@ -103,7 +104,7 @@ describe("__$ HMR runtime", () => {
         "last_change_structural": true,
         "module_id": undefined,
         "module_version": undefined,
-        "mutable_observable_id": "6",
+        "mutable_observable_id": "5",
         "parent_track_id": undefined,
         "prev_observable_ids": [
           "2",
@@ -134,19 +135,20 @@ describe("__$ HMR runtime", () => {
       return $("myMap", () => proxy.map((x: number) => x * 2))
     })
 
-    expect(state$.value.store.hmr_track["test:op:myMap"]).toMatchInlineSnapshot(`undefined`)
+    expect(findTrackByKey(state$.value, "test:op:myMap")).toMatchInlineSnapshot(`undefined`)
   })
 
   it("detects fn-only change when structure same (last_change_structural: false)", () => {
     // First execution
     __$("test:hmr", () => proxy.of(1, 2, 3).pipe(proxy.map(x => x * 2)))
-    const mutableId1 = state$.value.store.hmr_track["test:hmr"].mutable_observable_id
+    const track1 = findTrackByKey(state$.value, "test:hmr")!
+    const mutableId1 = track1.mutable_observable_id
     const obs1Name = state$.value.store.observable[mutableId1]?.name
-    expect(state$.value.store.hmr_track["test:hmr"].version).toBe(0)
+    expect(track1.version).toBe(0)
 
     // Simulate HMR: same structure, different fn body
     __$("test:hmr", () => proxy.of(1, 2, 3).pipe(proxy.map(x => x * 3)))
-    const track2 = state$.value.store.hmr_track["test:hmr"]
+    const track2 = findTrackByKey(state$.value, "test:hmr")!
     const obs2Name = state$.value.store.observable[track2.mutable_observable_id]?.name
 
     expect(track2.version).toBe(1)
@@ -159,7 +161,7 @@ describe("__$ HMR runtime", () => {
   it("detects structural change when operator added (last_change_structural: true)", () => {
     // First execution
     __$("test:structural", () => proxy.of(1, 2, 3).pipe(proxy.map(x => x * 2)))
-    const mutableId1 = state$.value.store.hmr_track["test:structural"].mutable_observable_id
+    const mutableId1 = findTrackByKey(state$.value, "test:structural")!.mutable_observable_id
     const obs1Name = state$.value.store.observable[mutableId1]?.name
 
     // Simulate HMR: added filter operator
@@ -170,7 +172,7 @@ describe("__$ HMR runtime", () => {
       ),
     )
 
-    const track = state$.value.store.hmr_track["test:structural"]
+    const track = findTrackByKey(state$.value, "test:structural")!
     const obs2Name = state$.value.store.observable[track.mutable_observable_id]?.name
 
     expect({
@@ -195,7 +197,7 @@ describe("__$ HMR runtime", () => {
     // Simulate HMR: changed take count
     __$("test:primitive", () => proxy.of(1, 2, 3).pipe(proxy.take(10)))
 
-    const track = state$.value.store.hmr_track["test:primitive"]
+    const track = findTrackByKey(state$.value, "test:primitive")!
     expect(track.version).toBe(1)
     // Different structure: take(5) → take(10)
     expect((track as any).last_change_structural).toBe(true)
@@ -256,8 +258,8 @@ describe("__$ HMR runtime", () => {
           "4",
         ],
         "tracks": [
-          "parent",
-          "$ref[3]:subscription[4]:level1:level2",
+          "0",
+          "9",
         ],
       }
     `)
@@ -270,8 +272,9 @@ describe("trackedSubject bi-sync", () => {
   it("proxy.next forwards to inner and emits on proxy", () => {
     let rawInner: Subject<number> | undefined
     __$("biSync", () => (rawInner = new Subject<number>()))
+    const trackId = findTrackByKey(state$.value, "biSync")!.id
 
-    const ts = trackedSubject<number>("biSync")
+    const ts = trackedSubject<number>(trackId)
     const innerValues: number[] = []
     const proxyValues: number[] = []
 
@@ -301,8 +304,9 @@ describe("trackedSubject bi-sync", () => {
   it("inner.next forwards to proxy (captured raw inner)", () => {
     let rawInner: Subject<number> | undefined
     __$("innerForward", () => (rawInner = new Subject<number>()))
+    const trackId = findTrackByKey(state$.value, "innerForward")!.id
 
-    const ts = trackedSubject<number>("innerForward")
+    const ts = trackedSubject<number>(trackId)
     const proxyValues: number[] = []
 
     // Subscribe directly to proxy's internal subject
@@ -325,8 +329,9 @@ describe("trackedSubject bi-sync", () => {
   it("error and complete forward bidirectionally", () => {
     let rawInner: Subject<number> | undefined
     __$("errorComplete", () => (rawInner = new Subject<number>()))
+    const trackId = findTrackByKey(state$.value, "errorComplete")!.id
 
-    const ts = trackedSubject<number>("errorComplete")
+    const ts = trackedSubject<number>(trackId)
     let innerCompleted = false
     let proxyCompleted = false
 
@@ -346,8 +351,9 @@ describe("trackedSubject bi-sync", () => {
   it("inner.complete forwards to proxy", () => {
     let rawInner: Subject<number> | undefined
     __$("innerComplete", () => (rawInner = new Subject<number>()))
+    const trackId = findTrackByKey(state$.value, "innerComplete")!.id
 
-    const ts = trackedSubject<number>("innerComplete")
+    const ts = trackedSubject<number>(trackId)
     let proxyCompleted = false
 
     ;(ts as any)._subscribe({ complete: () => (proxyCompleted = true) })
@@ -360,8 +366,9 @@ describe("trackedSubject bi-sync", () => {
   it("no infinite loop when proxy.next triggers inner which triggers proxy", () => {
     let rawInner: Subject<number> | undefined
     __$("noLoop", () => (rawInner = new Subject<number>()))
+    const trackId = findTrackByKey(state$.value, "noLoop")!.id
 
-    const ts = trackedSubject<number>("noLoop")
+    const ts = trackedSubject<number>(trackId)
     const values: number[] = []
 
     // Subscribe to both to check for duplicates
@@ -386,8 +393,9 @@ describe("trackedBehaviorSubject", () => {
   it("getValue returns inner value", () => {
     let rawInner: BehaviorSubject<number> | undefined
     __$("bsValue", () => (rawInner = new BehaviorSubject(42)))
+    const trackId = findTrackByKey(state$.value, "bsValue")!.id
 
-    const tbs = trackedBehaviorSubject<number>("bsValue", 0)
+    const tbs = trackedBehaviorSubject<number>(trackId, 0)
 
     expect(tbs.getValue()).toBe(42)
     expect(tbs.value).toBe(42)
@@ -396,8 +404,9 @@ describe("trackedBehaviorSubject", () => {
   it("proxy.next updates inner value", () => {
     let rawInner: BehaviorSubject<number> | undefined
     __$("bsNext", () => (rawInner = new BehaviorSubject(0)))
+    const trackId = findTrackByKey(state$.value, "bsNext")!.id
 
-    const tbs = trackedBehaviorSubject<number>("bsNext", -1)
+    const tbs = trackedBehaviorSubject<number>(trackId, -1)
 
     tbs.next(100)
 
@@ -408,8 +417,9 @@ describe("trackedBehaviorSubject", () => {
   it("inner.next updates proxy value", () => {
     let rawInner: BehaviorSubject<number> | undefined
     __$("bsInnerNext", () => (rawInner = new BehaviorSubject(0)))
+    const trackId = findTrackByKey(state$.value, "bsInnerNext")!.id
 
-    const tbs = trackedBehaviorSubject<number>("bsInnerNext", -1)
+    const tbs = trackedBehaviorSubject<number>(trackId, -1)
 
     rawInner!.next(200)
 
@@ -420,8 +430,9 @@ describe("trackedBehaviorSubject", () => {
   it("bi-sync with next/error/complete", () => {
     let rawInner: BehaviorSubject<number> | undefined
     __$("bsBiSync", () => (rawInner = new BehaviorSubject(0)))
+    const trackId = findTrackByKey(state$.value, "bsBiSync")!.id
 
-    const tbs = trackedBehaviorSubject<number>("bsBiSync", -1)
+    const tbs = trackedBehaviorSubject<number>(trackId, -1)
     const innerValues: number[] = []
     const proxyValues: number[] = []
 

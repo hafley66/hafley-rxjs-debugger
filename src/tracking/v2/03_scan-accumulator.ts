@@ -312,9 +312,10 @@ export const state$$ = observableEventsEnabled$.pipe(
       case "track-call": {
         const parent = state.stack.hmr_track.at(-1)
         const currentModule = state.stack.hmr_module.at(-1)
+        // Runtime provides surrogate id, key is the location string
         const entity = {
-          id: createId(),
-          key: event.id,
+          id: event.id,
+          key: event.key,
           created_at: now(),
           mutable_observable_id: "",
           parent_track_id: parent?.id,
@@ -332,8 +333,8 @@ export const state$$ = observableEventsEnabled$.pipe(
         entity.created_at_end = now()
 
         const currentModule = state.stack.hmr_module.at(-1)
-        // Look up by key (the track location), not id (surrogate)
-        const existing = state.store.hmr_track[entity.key]
+        // Lookup by id - O(1). Runtime reuses existing track's id on HMR re-execution.
+        const existing = state.store.hmr_track[entity.id]
         if (existing && existing.mutable_observable_id !== entity.mutable_observable_id) {
           // HMR re-execution detected - compare structural hashes
           const oldObs = state.store.observable[existing.mutable_observable_id]
@@ -357,9 +358,9 @@ export const state$$ = observableEventsEnabled$.pipe(
             existing.stable_observable_id = entity.stable_observable_id
           }
         } else {
-          // First time - store it by key
+          // First time - store by surrogate id
           entity.module_version = currentModule?.version
-          state.store.hmr_track[entity.key] = entity
+          state.store.hmr_track[entity.id] = entity
         }
         // Wrapper registration now handled by constructor-call-return via TRACKED_MARKER
         break
@@ -404,7 +405,8 @@ export const state$$ = observableEventsEnabled$.pipe(
         // Clean up orphaned tracks: complete wrapper (triggers teardown), delete from store
         const orphanedObsIds = new Set<string>()
         for (const key of orphanedKeys) {
-          const track = state.store.hmr_track[key]
+          // Find track by key (store is keyed by surrogate id)
+          const track = Object.values(state.store.hmr_track).find(t => t.key === key)
           if (track) {
             orphanedObsIds.add(track.mutable_observable_id)
             // Complete the wrapper to trigger teardown (unsubscribes state$$ watcher)
@@ -414,8 +416,8 @@ export const state$$ = observableEventsEnabled$.pipe(
             if (wrapper instanceof Subject) {
               wrapper.complete()
             }
-            // Remove from store
-            delete state.store.hmr_track[key]
+            // Remove from store by id
+            delete state.store.hmr_track[track.id]
           }
         }
 
