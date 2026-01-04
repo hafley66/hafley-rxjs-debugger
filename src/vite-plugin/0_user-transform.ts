@@ -316,6 +316,10 @@ function applyTransforms(
   // Add __$.end() at the end of the original code (not append() which goes to final string end)
   const codeEnd = code.length
   ms.appendRight(codeEnd, `\n__$.end()\n`)
+
+  // Inject HMR self-accept so module handles its own updates
+  // trackedObservable wrappers swap inner source when module re-executes with same keys
+  ms.appendRight(codeEnd, `if (import.meta.hot) {\n  import.meta.hot.accept()\n}\n`)
 }
 
 // File detection

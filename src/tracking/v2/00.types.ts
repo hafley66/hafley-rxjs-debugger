@@ -12,6 +12,7 @@ import { useEffect, useState } from "react"
 import { BehaviorSubject } from "rxjs/internal/BehaviorSubject"
 import { Observable } from "rxjs/internal/Observable"
 import { Subject } from "rxjs/internal/Subject"
+import { type Subscription } from "rxjs/internal/Subscription"
 import { filter, scan, startWith } from "rxjs/operators"
 import { bootstrap } from "./01.patch-observable"
 
@@ -75,7 +76,7 @@ export type ObservableEvent =
       | { type: "pipe-call"; args: any[]; index: number }
       | { type: "pipe-call-return" }
       | { type: "subscribe-call"; args: any[]; index: number }
-      | { type: "subscribe-call-return" }
+      | { type: "subscribe-call-return"; subscription: Subscription }
       | ({ type: "send-call"; subscription_id: string } & (
           | { kind: "next"; value: any; index: number }
           | { kind: "error"; error: Error }
@@ -137,6 +138,7 @@ type Hmm = {
     parent_subscription_id?: string
     is_sync: boolean
     module_id?: string // FK → hmr_module (which file created this sub)
+    sub_ref?: WeakRef<Subscription> // live ref for HMR cleanup
   }
   // Arg position (static observable refs + function positions + primitives)
   arg: {

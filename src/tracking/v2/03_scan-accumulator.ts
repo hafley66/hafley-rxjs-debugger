@@ -157,6 +157,7 @@ export const state$$ = observableEventsEnabled$.pipe(
         const subEntity = state.stack.subscription.pop()
         if (subEntity) {
           subEntity.created_at_end = now()
+          subEntity.sub_ref = new WeakRef(event.subscription)
           // TODO: Check is_sync flag (did complete/error fire before this?)
         }
         break
@@ -402,13 +403,15 @@ export const state$$ = observableEventsEnabled$.pipe(
         )
         const orphanedKeys = module.prev_keys.filter(k => !currentKeys.has(k))
 
-        // Clean up orphaned tracks: complete wrapper (triggers teardown), delete from store
-        const orphanedObsIds = new Set<string>()
+        // Clean up orphaned tracks: collect stable IDs, complete wrapper, delete from store
+        const orphanedStableIds = new Set<string>()
         for (const key of orphanedKeys) {
           // Find track by key (store is keyed by surrogate id)
           const track = Object.values(state.store.hmr_track).find(t => t.key === key)
           if (track) {
-            orphanedObsIds.add(track.mutable_observable_id)
+            if (track.stable_observable_id) {
+              orphanedStableIds.add(track.stable_observable_id)
+            }
             // Complete the wrapper to trigger teardown (unsubscribes state$$ watcher)
             // Use observable table (obs_ref is single source of truth for WeakRefs)
             const stableId = track.stable_observable_id
@@ -421,15 +424,10 @@ export const state$$ = observableEventsEnabled$.pipe(
           }
         }
 
-        // Find and cancel dangling subscriptions
-        // A sub is dangling if its observable_id is orphaned AND it belongs to this module
+        // Unsubscribe any subscription to an orphaned stable observable
         for (const sub of Object.values(state.store.subscription)) {
-          if (
-            sub.module_id === module.id &&
-            orphanedObsIds.has(sub.observable_id) &&
-            !sub.unsubscribed_at
-          ) {
-            // Mark as unsubscribed (actual unsubscribe happens in runtime via WeakRef)
+          if (orphanedStableIds.has(sub.observable_id) && !sub.unsubscribed_at) {
+            sub.sub_ref?.deref()?.unsubscribe()
             sub.unsubscribed_at = now()
             sub.unsubscribed_at_end = now()
           }

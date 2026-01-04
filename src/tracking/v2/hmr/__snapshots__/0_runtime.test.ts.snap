@@ -132,6 +132,16 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
     {
       "id": "4",
       "observable_id": "1",
+      "subscription": SafeSubscriber {
+        "__id__": "4",
+        "_finalizers": null,
+        "_parentage": null,
+        "closed": true,
+        "destination": null,
+        "initialTeardown": undefined,
+        "isStopped": true,
+        Symbol(rxjs-debugger-patched-unsubscribe): true,
+      },
       "type": "subscribe-call-return",
     },
     {
@@ -155,6 +165,16 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
     {
       "id": "3",
       "observable_id": "2",
+      "subscription": SafeSubscriber {
+        "__id__": "3",
+        "_finalizers": null,
+        "_parentage": null,
+        "closed": true,
+        "destination": null,
+        "initialTeardown": undefined,
+        "isStopped": true,
+        Symbol(rxjs-debugger-patched-unsubscribe): true,
+      },
       "type": "subscribe-call-return",
     },
   ],
@@ -270,6 +290,7 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
         "module_id": undefined,
         "observable_id": "2",
         "parent_subscription_id": undefined,
+        "sub_ref": WeakRef {},
       },
     },
   },

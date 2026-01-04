@@ -145,6 +145,26 @@ describe("ModuleScope", () => {
       // wrapper2 was completed (triggers watcher cleanup)
       expect(wrapper2Completed).toMatchInlineSnapshot(`true`)
     })
+
+    it("unsubscribes subscriptions to orphaned observables via sub_ref", () => {
+      // First load - create tracked observable and subscribe to it
+      const __$1 = _rxjs_debugger_module_start("file:///sub-cleanup.ts")
+      const wrapper = __$1("data$", () => new Subject<number>())
+      __$1.end()
+
+      // External subscription to the tracked observable
+      const received: number[] = []
+      const sub = wrapper.subscribe(v => received.push(v))
+      expect(sub.closed).toBe(false)
+
+      // HMR reload - orphan data$ (don't re-create it)
+      const __$2 = _rxjs_debugger_module_start("file:///sub-cleanup.ts")
+      // data$ NOT re-created - it's an orphan
+      __$2.end()
+
+      // Subscription should be unsubscribed via sub_ref cleanup
+      expect(sub.closed).toBe(true)
+    })
   })
 
   describe(".sub() wrapper", () => {
@@ -205,32 +225,32 @@ describe("ModuleScope", () => {
       )
       expect(relevantTracks).toMatchInlineSnapshot(`
         {
-          "$ref[3]:subscription[24]:inner": {
+          "$ref[3]:subscription[20]:inner": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "26",
+            "id": "22",
             "index": 0,
-            "key": "$ref[3]:subscription[24]:inner",
+            "key": "$ref[3]:subscription[20]:inner",
             "module_id": "file:///defer-test.ts",
             "module_version": 1,
-            "mutable_observable_id": "27",
+            "mutable_observable_id": "23",
             "parent_track_id": "0",
             "prev_observable_ids": [],
-            "stable_observable_id": "29",
+            "stable_observable_id": "25",
             "version": 0,
           },
-          "$ref[3]:subscription[8]:inner": {
+          "$ref[3]:subscription[4]:inner": {
             "created_at": 0,
             "created_at_end": 0,
-            "id": "10",
+            "id": "6",
             "index": 0,
-            "key": "$ref[3]:subscription[8]:inner",
+            "key": "$ref[3]:subscription[4]:inner",
             "module_id": "file:///defer-test.ts",
             "module_version": 1,
-            "mutable_observable_id": "11",
+            "mutable_observable_id": "7",
             "parent_track_id": "0",
             "prev_observable_ids": [],
-            "stable_observable_id": "13",
+            "stable_observable_id": "9",
             "version": 0,
           },
           "fetch$": {

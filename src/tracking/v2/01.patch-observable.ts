@@ -291,7 +291,7 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
     // Attach __id__ to subscription for easy lookup
     ;(sub as any).__id__ = subscription_id
 
-    emit({ observable_id, type: "subscribe-call-return", id: subscription_id })
+    emit({ observable_id, type: "subscribe-call-return", id: subscription_id, subscription: sub })
 
     // Only patch unsubscribe if not already patched (avoid double-patching in nested subscriptions)
     if (!(sub as any)[PATCHED_UNSUB]) {
