@@ -363,6 +363,7 @@ describe("Class proxy events", () => {
             "module_id": undefined,
             "observable_id": "22",
             "parent_subscription_id": undefined,
+            "sub_ref": WeakRef {},
           },
           "24": {
             "created_at": 1000,
@@ -372,6 +373,7 @@ describe("Class proxy events", () => {
             "module_id": undefined,
             "observable_id": "20",
             "parent_subscription_id": "23",
+            "sub_ref": WeakRef {},
           },
           "25": {
             "created_at": 1000,
@@ -381,6 +383,7 @@ describe("Class proxy events", () => {
             "module_id": undefined,
             "observable_id": "0",
             "parent_subscription_id": "24",
+            "sub_ref": WeakRef {},
             "unsubscribed_at": 2000,
             "unsubscribed_at_end": 2000,
           },
@@ -392,6 +395,7 @@ describe("Class proxy events", () => {
             "module_id": undefined,
             "observable_id": "39",
             "parent_subscription_id": "24",
+            "sub_ref": WeakRef {},
           },
           "43": {
             "created_at": 2000,
@@ -401,6 +405,7 @@ describe("Class proxy events", () => {
             "module_id": undefined,
             "observable_id": "0",
             "parent_subscription_id": "41",
+            "sub_ref": WeakRef {},
           },
         },
       }
@@ -1019,6 +1024,7 @@ describe("Class proxy events", () => {
             "module_id": undefined,
             "observable_id": "0",
             "parent_subscription_id": "9",
+            "sub_ref": WeakRef {},
           },
           "16": {
             "created_at": 0,
@@ -1028,6 +1034,7 @@ describe("Class proxy events", () => {
             "module_id": undefined,
             "observable_id": "14",
             "parent_subscription_id": "10",
+            "sub_ref": WeakRef {},
           },
           "9": {
             "created_at": 0,
@@ -1037,6 +1044,7 @@ describe("Class proxy events", () => {
             "module_id": undefined,
             "observable_id": "8",
             "parent_subscription_id": undefined,
+            "sub_ref": WeakRef {},
           },
         },
       }

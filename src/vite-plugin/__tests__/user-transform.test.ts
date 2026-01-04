@@ -75,8 +75,11 @@ const data$ = of(1, 2, 3)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const data$ = __$("data$:f6b9a3e0", () => of(1, 2, 3))
+          const data$ = __$("data$:of(1,2,3)", () => of(1, 2, 3))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -92,8 +95,11 @@ const events$ = new Subject()`
           import { Subject } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const events$ = __$("events$:b8dfa078", () => new Subject())
+          const events$ = __$("events$:new Subject()", () => new Subject())
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -109,8 +115,11 @@ const state$ = new BehaviorSubject(0)`
           import { BehaviorSubject } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const state$ = __$("state$:552ee4c8", () => new BehaviorSubject(0))
+          const state$ = __$("state$:new BehaviorSubject(0)", () => new BehaviorSubject(0))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -128,8 +137,11 @@ const doubled$ = source$.pipe(map(x => x * 2))`
           import { map } from 'rxjs/operators'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const doubled$ = __$("doubled$:62b0a516", () => source$.pipe(map(x => x * 2)))
+          const doubled$ = __$("doubled$:source$.map(fn)", () => source$.pipe(map(x => x * 2)))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -146,9 +158,12 @@ const events$ = new Subject()`
           import { of, Subject } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const data$ = __$("data$:17fa50f4", () => of(1))
-          const events$ = __$("events$:b8dfa078", () => new Subject())
+          const data$ = __$("data$:of(1)", () => of(1))
+          const events$ = __$("events$:new Subject()", () => new Subject())
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -166,8 +181,11 @@ data$.subscribe(console.log)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          __$.sub("sub:3e4b83e0", () => data$.subscribe(console.log))
+          __$.sub("sub:data$.subscribe(console.log)", () => data$.subscribe(console.log))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -183,8 +201,11 @@ data$.subscribe({ next: console.log, error: console.error })`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          __$.sub("sub:03e685b7", () => data$.subscribe({ next: console.log, error: console.error }))
+          __$.sub("sub:data$.subscribe({error:console.error,next:console.log})", () => data$.subscribe({ next: console.log, error: console.error }))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -200,8 +221,11 @@ data$.forEach(console.log)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          __$.sub("sub:37bbc250", () => data$.forEach(console.log))
+          __$.sub("sub:data$.forEach(console.log)", () => data$.forEach(console.log))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -272,8 +296,11 @@ const data$ = of(1)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const data$ = __$("data$:17fa50f4", () => of(1))
+          const data$ = __$("data$:of(1)", () => of(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -293,8 +320,11 @@ const data$ = of(1)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const data$ = __$("data$:17fa50f4", () => of(1))
+          const data$ = __$("data$:of(1)", () => of(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -317,8 +347,11 @@ const x$ = of(1, 2, 3)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const x$ = __$("x$:f6b9a3e0", () => of(1,2,3))
+          const x$ = __$("x$:of(1,2,3)", () => of(1,2,3))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
         expect(result2.code).toMatchInlineSnapshot(`
@@ -326,8 +359,11 @@ const x$ = of(1, 2, 3)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const x$ = __$("x$:f6b9a3e0", () => of(1, 2, 3))
+          const x$ = __$("x$:of(1,2,3)", () => of(1, 2, 3))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -348,8 +384,11 @@ const x$ = of(2)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const x$ = __$("x$:17fa50f4", () => of(1))
+          const x$ = __$("x$:of(1)", () => of(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
         expect(result2.code).toMatchInlineSnapshot(`
@@ -357,8 +396,11 @@ const x$ = of(2)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const x$ = __$("x$:d14c0a00", () => of(2))
+          const x$ = __$("x$:of(2)", () => of(2))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -376,8 +418,11 @@ const x$ = of(1)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const x$ = __$("x$:17fa50f4", () => of(1))
+          const x$ = __$("x$:of(1)", () => of(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -406,8 +451,11 @@ const x$ = createObs(1)`
           import { of as createObs } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const x$ = __$("x$:8006b97c", () => createObs(1))
+          const x$ = __$("x$:createObs(1)", () => createObs(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -424,8 +472,11 @@ const x$ = rx.of(1)`
           import * as rx from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const x$ = __$("x$:c191b330", () => rx.of(1))
+          const x$ = __$("x$:rx.of(1)", () => rx.of(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -441,8 +492,11 @@ export const x$ = of(1)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          export const x$ = __$("x$:17fa50f4", () => of(1))
+          export const x$ = __$("x$:of(1)", () => of(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -462,9 +516,12 @@ class Store {
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
           class Store {
-            data$ = __$("data$:17fa50f4", () => of(1))
+            data$ = __$("data$:of(1)", () => of(1))
           }
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -480,8 +537,11 @@ let x$ = of(1)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          let x$ = __$("x$:17fa50f4", () => of(1))
+          let x$ = __$("x$:of(1)", () => of(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -497,8 +557,11 @@ var x$ = of(1)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          var x$ = __$("x$:17fa50f4", () => of(1))
+          var x$ = __$("x$:of(1)", () => of(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -516,8 +579,11 @@ const x$ = source$.pipe(map(x => x)).pipe(filter(x => x > 0))`
           import { map, filter } from 'rxjs/operators'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const x$ = __$("x$:8a09f177", () => source$.pipe(map(x => x)).pipe(filter(x => x > 0)))
+          const x$ = __$("x$:source$.map(fn).filter(fn)", () => source$.pipe(map(x => x)).pipe(filter(x => x > 0)))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -537,9 +603,12 @@ const b$ = of(1)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          const a$ = __$("a$:17fa50f4", () => of(1))
-          const b$ = __$("b$:17fa50f4", () => of(1))
+          const a$ = __$("a$:of(1)", () => of(1))
+          const b$ = __$("b$:of(1)", () => of(1))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })
@@ -557,9 +626,12 @@ b$.subscribe(console.log)`
           import { of } from 'rxjs'
           const __$ = _rxjs_debugger_module_start(import.meta.url)
 
-          __$.sub("sub:3969b488", () => a$.subscribe(console.log))
-          __$.sub("sub:e7c24907", () => b$.subscribe(console.log))
+          __$.sub("sub:a$.subscribe(console.log)", () => a$.subscribe(console.log))
+          __$.sub("sub:b$.subscribe(console.log)", () => b$.subscribe(console.log))
           __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
           "
         `)
       })

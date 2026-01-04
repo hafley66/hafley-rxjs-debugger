@@ -98,38 +98,113 @@ function collectRxjsImports(ast: any): {
   return { creators, subjects, namespaces, lastImportEnd }
 }
 
-// FNV-1a hash for stable keys
-function fnv1aHash(str: string): string {
-  let hash = 2166136261
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i)
-    hash = (hash * 16777619) >>> 0
-  }
-  return hash.toString(16).padStart(8, "0")
-}
+// Structural serialization - mirrors runtime's serializeValue
+// Produces keys like: of(1,2,3).map(fn).filter(fn)
+function serializeAstNode(node: any): string {
+  if (!node) return "?"
 
-// Strip location info from AST for stable hashing
-function normalizeAst(node: any): any {
-  if (!node || typeof node !== "object") return node
-  const clone: any = {}
-  for (const key of Object.keys(node)) {
-    if (["start", "end", "loc", "range", "span"].includes(key)) continue
-    const val = node[key]
-    if (Array.isArray(val)) {
-      clone[key] = val.map(normalizeAst)
-    } else if (val && typeof val === "object") {
-      clone[key] = normalizeAst(val)
-    } else {
-      clone[key] = val
+  // Functions → "fn"
+  if (node.type === "ArrowFunctionExpression" || node.type === "FunctionExpression") {
+    return "fn"
+  }
+
+  // Identifiers - variable references
+  if (node.type === "Identifier") {
+    return node.name
+  }
+
+  // Literals
+  if (node.type === "NumericLiteral" || (node.type === "Literal" && typeof node.value === "number")) {
+    return String(node.value)
+  }
+  if (node.type === "StringLiteral" || (node.type === "Literal" && typeof node.value === "string")) {
+    return `"${node.value}"`
+  }
+  if (node.type === "BooleanLiteral" || (node.type === "Literal" && typeof node.value === "boolean")) {
+    return String(node.value)
+  }
+  if (node.type === "NullLiteral" || (node.type === "Literal" && node.value === null)) {
+    return "null"
+  }
+
+  // Array expressions
+  if (node.type === "ArrayExpression") {
+    const elements = (node.elements || []).map((el: any) => serializeAstNode(el))
+    return `[${elements.join(",")}]`
+  }
+
+  // Object expressions
+  if (node.type === "ObjectExpression") {
+    const props = (node.properties || [])
+      .filter((p: any) => p.type === "Property" || p.type === "ObjectProperty")
+      .map((p: any) => {
+        const key = p.key?.name || p.key?.value || "?"
+        return `${key}:${serializeAstNode(p.value)}`
+      })
+      .sort()
+    return `{${props.join(",")}}`
+  }
+
+  // New expressions (new Subject(), new BehaviorSubject(0))
+  if (node.type === "NewExpression") {
+    const callee = node.callee?.name || node.callee?.property?.name || "?"
+    const args = (node.arguments || []).map((a: any) => serializeAstNode(a))
+    return `new ${callee}(${args.join(",")})`
+  }
+
+  // Call expressions - check for pipe pattern
+  if (node.type === "CallExpression") {
+    // Pipe call: source$.pipe(op1, op2) → source$.op1(...).op2(...)
+    if (node.callee?.type === "MemberExpression" && node.callee?.property?.name === "pipe") {
+      const source = serializeAstNode(node.callee.object)
+      const operators = (node.arguments || []).map((op: any) => {
+        if (op.type === "CallExpression" && op.callee?.type === "Identifier") {
+          const opName = op.callee.name
+          const opArgs = (op.arguments || []).map((a: any) => serializeAstNode(a))
+          return `.${opName}(${opArgs.join(",")})`
+        }
+        return `.?(${serializeAstNode(op)})`
+      })
+      return source + operators.join("")
     }
+
+    // Member call: a$.subscribe(...) → a$.subscribe(...)
+    if (node.callee?.type === "MemberExpression") {
+      const obj = serializeAstNode(node.callee.object)
+      const prop = node.callee.property?.name || "?"
+      const args = (node.arguments || []).map((a: any) => serializeAstNode(a))
+      return `${obj}.${prop}(${args.join(",")})`
+    }
+
+    // Regular call: of(1, 2, 3)
+    const callee = node.callee?.name || "?"
+    const args = (node.arguments || []).map((a: any) => serializeAstNode(a))
+    return `${callee}(${args.join(",")})`
   }
-  return clone
+
+  // Member expressions (for chained pipes like source$.pipe().pipe())
+  if (node.type === "MemberExpression") {
+    const obj = serializeAstNode(node.object)
+    const prop = node.property?.name || node.property?.value || "?"
+    return `${obj}.${prop}`
+  }
+
+  // Spread elements
+  if (node.type === "SpreadElement") {
+    return `...${serializeAstNode(node.argument)}`
+  }
+
+  // Template literals
+  if (node.type === "TemplateLiteral") {
+    return "`...`"
+  }
+
+  return "?"
 }
 
-function generateKey(prefix: string, node: any): string {
-  const normalized = normalizeAst(node)
-  const hash = fnv1aHash(JSON.stringify(normalized))
-  return `${prefix}:${hash}`
+function generateStructuralKey(prefix: string, node: any): string {
+  const structure = serializeAstNode(node)
+  return `${prefix}:${structure}`
 }
 
 // AST detection helpers - now take imported symbols as context
@@ -297,8 +372,8 @@ function applyTransforms(
 
   for (const t of sorted) {
     const key = t.type === "observable"
-      ? generateKey(t.varName!, t.node)
-      : generateKey("sub", t.node)
+      ? generateStructuralKey(t.varName!, t.node)
+      : generateStructuralKey("sub", t.node)
 
     if (t.type === "observable") {
       ms.prependLeft(t.start, `__$("${key}", () => `)
