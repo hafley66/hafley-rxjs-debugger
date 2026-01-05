@@ -17,7 +17,7 @@ import { state$$ } from "../03_scan-accumulator"
  * When mutable_observable_id changes, unsubs old source, subs to new source.
  * User subscriptions see seamless switch.
  */
-export function trackedObservable<T>(trackId: string): Observable<T> {
+export function trackedObservable<T>(trackId: string, initialMutableId?: string): Observable<T> {
   // Capture module context at creation time for later restoration
   // Lookup by id - O(1). Fall back to stack for first execution (before track-call-return)
   const track = state$.value.store.hmr_track[trackId]
@@ -27,8 +27,14 @@ export function trackedObservable<T>(trackId: string): Observable<T> {
   const obs = new Observable<T>(subscriber => {
     let innerSub: Subscription | null = null
     let lastEntityId: string | undefined
+    let connectCallCount = 0
 
     const connectToSource = (entityId: string) => {
+      connectCallCount++
+      if (connectCallCount > 10) {
+        console.error("trackedObservable connectToSource called too many times!", { trackId, entityId, lastEntityId, connectCallCount })
+        throw new Error("Infinite loop detected in trackedObservable")
+      }
       if (entityId === lastEntityId) return
       lastEntityId = entityId
 
@@ -74,24 +80,26 @@ export function trackedObservable<T>(trackId: string): Observable<T> {
       }
     }
 
-    // Check current state immediately
-    // First check store, then check stack (track might still be on stack during construction)
-    let initialEntityId = state$.value.store.hmr_track[trackId]?.mutable_observable_id
-    if (!initialEntityId) {
-      // Track might be on stack (we're inside __$ call, before track-call-return)
-      const stackTrack = state$.value.stack.hmr_track.find(t => t.id === trackId)
-      initialEntityId = stackTrack?.mutable_observable_id
-    }
-    if (initialEntityId) {
-      connectToSource(initialEntityId)
+    // Try immediate connection if observable is already in store
+    const tryConnect = () => {
+      const entityId = initialMutableId
+        ?? state$.value.store.hmr_track[trackId]?.mutable_observable_id
+      if (entityId && state$.value.store.observable[entityId]) {
+        connectToSource(entityId)
+        return true
+      }
+      return false
     }
 
-    // Watch for changes - internal subscription, no tracking
-    // Only reconnect if mutable_observable_id actually changes (HMR scenario)
+    // Try immediate connection, but it may fail if events are still buffered
+    tryConnect()
+
+    // Watch for changes - reconnect when observable becomes available or changes
     const watchSub = __withNoTrack(() =>
       state$$.subscribe(s => {
-        const entityId = s.store.hmr_track[trackId]?.mutable_observable_id
-        if (entityId && entityId !== lastEntityId) {
+        const entityId = initialMutableId
+          ?? s.store.hmr_track[trackId]?.mutable_observable_id
+        if (entityId && entityId !== lastEntityId && s.store.observable[entityId]) {
           connectToSource(entityId)
         }
       }),

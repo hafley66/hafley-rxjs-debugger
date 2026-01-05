@@ -88,7 +88,7 @@ export type ObservableEvent =
     ))
   // HMR track events - id is surrogate, key is location string
   | { type: "track-call"; id: string; key: string }
-  | { type: "track-call-return"; id: string }
+  | { type: "track-call-return"; id: string; mutable_observable_id?: string; stable_observable_id?: string }
   // HMR module events
   | { type: "hmr-module-call"; id: string; url: string }
   | { type: "hmr-module-call-return"; id: string }

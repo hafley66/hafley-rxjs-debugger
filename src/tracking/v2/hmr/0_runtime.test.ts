@@ -109,7 +109,7 @@ describe("__$ HMR runtime", () => {
         "prev_observable_ids": [
           "2",
         ],
-        "stable_observable_id": undefined,
+        "stable_observable_id": "4",
         "version": 1,
       }
     `)

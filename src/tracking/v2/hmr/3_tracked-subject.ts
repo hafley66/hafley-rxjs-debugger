@@ -17,7 +17,7 @@ import { state$$ } from "../03_scan-accumulator"
  * Create a Subject that tracks an hmr_track entry.
  * All methods forward to the current inner Subject based on mutable_observable_id.
  */
-export function trackedSubject<T>(trackId: string): Subject<T> {
+export function trackedSubject<T>(trackId: string, initialMutableId?: string): Subject<T> {
   let lastEntityId: string | undefined
   let currentSubject: Subject<T> | undefined
   let innerSub: Subscription | null = null
@@ -52,12 +52,16 @@ export function trackedSubject<T>(trackId: string): Subject<T> {
     )
   }
 
-  const getCurrentSubject = (): Subject<T> | undefined => {
-    // Lookup by id - O(1)
-    const entityId = state$.value.store.hmr_track[trackId]?.mutable_observable_id
-    if (entityId && entityId !== lastEntityId) {
+  const getCurrentSubject = (storeSnapshot?: typeof state$.value.store): Subject<T> | undefined => {
+    const store = storeSnapshot ?? state$.value.store
+    // Lookup by id - O(1). Use passed initialMutableId on first call, then store
+    const entityId = lastEntityId === undefined && initialMutableId
+      ? initialMutableId
+      : store.hmr_track[trackId]?.mutable_observable_id
+    // Only proceed if observable is actually in store (may still be buffered)
+    if (entityId && entityId !== lastEntityId && store.observable[entityId]) {
       lastEntityId = entityId
-      const obsRecord = state$.value.store.observable[entityId]
+      const obsRecord = store.observable[entityId]
       const newSubject = obsRecord?.obs_ref?.deref() as Subject<T> | undefined
       if (newSubject && newSubject !== currentSubject) {
         currentSubject = newSubject
@@ -72,8 +76,8 @@ export function trackedSubject<T>(trackId: string): Subject<T> {
 
   // Watch for HMR changes - update inner subscription when entity_id changes
   const watcherSub = __withNoTrack(() =>
-    state$$.subscribe(() => {
-      getCurrentSubject()
+    state$$.subscribe(s => {
+      getCurrentSubject(s.store)
     }),
   )
 
@@ -141,6 +145,7 @@ export function trackedSubject<T>(trackId: string): Subject<T> {
 export function trackedBehaviorSubject<T>(
   trackId: string,
   initialValue: T,
+  initialMutableId?: string,
 ): BehaviorSubject<T> {
   let lastEntityId: string | undefined
   let currentSubject: BehaviorSubject<T> | undefined
@@ -176,12 +181,16 @@ export function trackedBehaviorSubject<T>(
     )
   }
 
-  const getCurrentSubject = (): BehaviorSubject<T> | undefined => {
-    // Lookup by id - O(1)
-    const entityId = state$.value.store.hmr_track[trackId]?.mutable_observable_id
-    if (entityId && entityId !== lastEntityId) {
+  const getCurrentSubject = (storeSnapshot?: typeof state$.value.store): BehaviorSubject<T> | undefined => {
+    const store = storeSnapshot ?? state$.value.store
+    // Lookup by id - O(1). Use passed initialMutableId on first call, then store
+    const entityId = lastEntityId === undefined && initialMutableId
+      ? initialMutableId
+      : store.hmr_track[trackId]?.mutable_observable_id
+    // Only proceed if observable is actually in store (may still be buffered)
+    if (entityId && entityId !== lastEntityId && store.observable[entityId]) {
       lastEntityId = entityId
-      const obsRecord = state$.value.store.observable[entityId]
+      const obsRecord = store.observable[entityId]
       const newSubject = obsRecord?.obs_ref?.deref() as
         | BehaviorSubject<T>
         | undefined
@@ -198,8 +207,8 @@ export function trackedBehaviorSubject<T>(
 
   // Watch for HMR changes
   const watcherSub = __withNoTrack(() =>
-    state$$.subscribe(() => {
-      getCurrentSubject()
+    state$$.subscribe(s => {
+      getCurrentSubject(s.store)
     }),
   )
 

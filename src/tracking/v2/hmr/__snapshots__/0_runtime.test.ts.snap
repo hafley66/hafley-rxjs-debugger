@@ -27,6 +27,8 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
     },
     {
       "id": "0",
+      "mutable_observable_id": "1",
+      "stable_observable_id": "2",
       "type": "track-call-return",
     },
     {
@@ -93,6 +95,8 @@ exports[`__$ HMR runtime > prepends subscription context to track path when insi
     },
     {
       "id": "7",
+      "mutable_observable_id": "8",
+      "stable_observable_id": "9",
       "type": "track-call-return",
     },
     {

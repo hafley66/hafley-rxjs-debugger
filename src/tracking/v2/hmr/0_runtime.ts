@@ -14,7 +14,7 @@ import { createId } from "../01_helpers"
 import { emit } from "../01.patch-observable"
 import { findTrackByKey } from "./1_queries"
 import { trackedObservable } from "./2_tracked-observable"
-import { trackedSubject } from "./3_tracked-subject"
+import { trackedBehaviorSubject, trackedSubject } from "./3_tracked-subject"
 
 // Only treat direct Subject/BehaviorSubject instances as Subjects
 // AnonymousSubject (from .pipe()) should be treated as Observable
@@ -23,6 +23,12 @@ function isRealSubject(val: any): val is Subject<any> {
   if (val == null) return false
   if ((val as any)[TRACKED_MARKER]) return false // Already tracked
   return val.constructor === Subject || val.constructor === BehaviorSubject
+}
+
+function isRealBehaviorSubject(val: any): val is BehaviorSubject<any> {
+  if (val == null) return false
+  if ((val as any)[TRACKED_MARKER]) return false
+  return val.constructor === BehaviorSubject
 }
 
 function isTrackedWrapper(val: any): boolean {
@@ -56,6 +62,10 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
     return __$(`${effectiveLocation}:${name}`, childFn)
   }
 
+  // Track IDs to emit - set by each observable case
+  let mutableId: string | undefined
+  let stableId: string | undefined
+
   try {
     const result = fn($)
 
@@ -73,61 +83,47 @@ export function __$<T>(location: string, fn: ($: TrackContext) => T): T {
       return wrapped as T
     }
 
+    // If result is a BehaviorSubject, use trackedBehaviorSubject to preserve initial value
+    if (isRealBehaviorSubject(result)) {
+      mutableId = (result as any).__id__
+      const trackInStore = state$.value.store.hmr_track[trackId]
+      const existingStableId = trackInStore?.stable_observable_id
+      let stable = existingStableId ? state$.value.store.observable[existingStableId]?.obs_ref?.deref() : undefined
+      if (!stable) {
+        stable = trackedBehaviorSubject(trackId, result.getValue(), mutableId)
+      }
+      stableId = (stable as any).__id__
+      return stable as T
+    }
+
     // If result is a real Subject (not AnonymousSubject from .pipe()), return stable trackedSubject wrapper
     if (isRealSubject(result)) {
-      // Lookup by surrogate id (O(1)) - store keyed by id
+      mutableId = (result as any).__id__
       const trackInStore = state$.value.store.hmr_track[trackId]
-      const trackOnStack = state$.value.stack.hmr_track.at(-1)
-      // Capture mutable_observable_id BEFORE creating wrapper
-      // (wrapper's constructor-call-return will incorrectly overwrite it)
-      const mutableIdBeforeWrapper = trackOnStack?.mutable_observable_id
-      // Look up stable wrapper via observable table (obs_ref is the single source of truth)
-      const stableId = trackInStore?.stable_observable_id
-      let stable = stableId ? state$.value.store.observable[stableId]?.obs_ref?.deref() : undefined
+      const existingStableId = trackInStore?.stable_observable_id
+      let stable = existingStableId ? state$.value.store.observable[existingStableId]?.obs_ref?.deref() : undefined
       if (!stable) {
-        // trackedSubject sets TRACKED_MARKER internally - pass track id, not key
-        stable = trackedSubject(trackId)
-        // Set stable_observable_id explicitly - TRACKED_MARKER timing doesn't work
-        // (constructor-call-return fires before marker is set)
-        if (trackOnStack) {
-          trackOnStack.stable_observable_id = (stable as any).__id__
-          // Restore mutable_observable_id (wrapper's constructor overwrote it)
-          if (mutableIdBeforeWrapper) {
-            trackOnStack.mutable_observable_id = mutableIdBeforeWrapper
-          }
-        }
+        stable = trackedSubject(trackId, mutableId)
       }
+      stableId = (stable as any).__id__
       return stable as T
     }
 
     // If result is an Observable (cold), return stable trackedObservable wrapper
     if (result instanceof Observable) {
-      // Lookup by surrogate id (O(1)) - store keyed by id
+      mutableId = (result as any).__id__
       const trackInStore = state$.value.store.hmr_track[trackId]
-      const trackOnStack = state$.value.stack.hmr_track.at(-1)
-      // Capture mutable_observable_id BEFORE creating wrapper
-      const mutableIdBeforeWrapper = trackOnStack?.mutable_observable_id
-      // Look up stable wrapper via observable table (obs_ref is the single source of truth)
-      const stableId = trackInStore?.stable_observable_id
-      let stable = stableId ? state$.value.store.observable[stableId]?.obs_ref?.deref() : undefined
+      const existingStableId = trackInStore?.stable_observable_id
+      let stable = existingStableId ? state$.value.store.observable[existingStableId]?.obs_ref?.deref() : undefined
       if (!stable) {
-        // trackedObservable sets TRACKED_MARKER internally - pass track id, not key
-        stable = trackedObservable(trackId)
-        // Set stable_observable_id explicitly - TRACKED_MARKER timing doesn't work
-        // (constructor-call-return fires before marker is set)
-        if (trackOnStack) {
-          trackOnStack.stable_observable_id = (stable as any).__id__
-          // Restore mutable_observable_id (wrapper's constructor overwrote it)
-          if (mutableIdBeforeWrapper) {
-            trackOnStack.mutable_observable_id = mutableIdBeforeWrapper
-          }
-        }
+        stable = trackedObservable(trackId, mutableId)
       }
+      stableId = (stable as any).__id__
       return stable as T
     }
 
     return result
   } finally {
-    emit({ type: "track-call-return", id: trackId })
+    emit({ type: "track-call-return", id: trackId, mutable_observable_id: mutableId, stable_observable_id: stableId })
   }
 }

@@ -1,6 +1,6 @@
 import { Subject, type Observable } from "rxjs"
 import { share } from "rxjs/operators"
-import { observableEventsEnabled$, type State, state$, TRACKED_MARKER } from "./00.types"
+import { observableEventsEnabled$, type State, state$ } from "./00.types"
 import { now, observableIdMap, createId } from "./01_helpers"
 import { crawlArgs } from "./02_arg-crawler"
 
@@ -44,16 +44,6 @@ export const state$$ = observableEventsEnabled$.pipe(
           obs_ref: new WeakRef(event.observable),
         }
         observableIdMap.set(event.observable, event.id)
-        // Capture into current track if any
-        const track = state.stack.hmr_track.at(-1)
-        if (track) {
-          if ((event.observable as any)[TRACKED_MARKER]) {
-            // Stable wrapper - set stable_observable_id, NOT mutable_observable_id
-            track.stable_observable_id = event.id
-          } else {
-            track.mutable_observable_id = event.id
-          }
-        }
         break
       }
 
@@ -68,11 +58,6 @@ export const state$$ = observableEventsEnabled$.pipe(
         for (const arg of args) {
           state.store.arg[arg.id] = arg
           arg.observable_id = obsId
-        }
-        // Capture into current track if any
-        const track = state.stack.hmr_track.at(-1)
-        if (track) {
-          track.mutable_observable_id = obsId
         }
         break
       }
@@ -101,11 +86,6 @@ export const state$$ = observableEventsEnabled$.pipe(
         if (!entity) break
         entity.created_at_end = now()
         entity.observable_id = event.observable_id
-        // Capture into current track - use the output observable's id
-        const track = state.stack.hmr_track.at(-1)
-        if (track) {
-          track.mutable_observable_id = event.observable_id
-        }
         break
       }
 
@@ -330,22 +310,26 @@ export const state$$ = observableEventsEnabled$.pipe(
       }
       case "track-call-return": {
         const entity = state.stack.hmr_track.pop()
-        if (!entity || !entity.mutable_observable_id) break
+        if (!entity) break
+        // IDs come from event (runtime knows them), not inferred from stack
+        if (!event.mutable_observable_id) break
+        entity.mutable_observable_id = event.mutable_observable_id
+        entity.stable_observable_id = event.stable_observable_id
         entity.created_at_end = now()
 
         const currentModule = state.stack.hmr_module.at(-1)
         // Lookup by id - O(1). Runtime reuses existing track's id on HMR re-execution.
         const existing = state.store.hmr_track[entity.id]
-        if (existing && existing.mutable_observable_id !== entity.mutable_observable_id) {
+        if (existing && existing.mutable_observable_id !== event.mutable_observable_id) {
           // HMR re-execution detected - compare structural hashes
           const oldObs = state.store.observable[existing.mutable_observable_id]
-          const newObs = state.store.observable[entity.mutable_observable_id]
+          const newObs = state.store.observable[event.mutable_observable_id]
           const structureChanged = oldObs?.name !== newObs?.name
 
           // Update in place
           existing.prev_observable_ids.push(existing.mutable_observable_id)
-          existing.mutable_observable_id = entity.mutable_observable_id
-          existing.stable_observable_id = entity.stable_observable_id
+          existing.mutable_observable_id = event.mutable_observable_id
+          existing.stable_observable_id = event.stable_observable_id
           existing.version += 1
           existing.module_version = currentModule?.version
           // Store whether this was a structural change (for future optimization)
@@ -355,15 +339,14 @@ export const state$$ = observableEventsEnabled$.pipe(
           // Same mutable_observable_id, just mark as touched this module version
           existing.module_version = currentModule?.version
           // Update stable_observable_id if changed
-          if (entity.stable_observable_id) {
-            existing.stable_observable_id = entity.stable_observable_id
+          if (event.stable_observable_id) {
+            existing.stable_observable_id = event.stable_observable_id
           }
         } else {
           // First time - store by surrogate id
           entity.module_version = currentModule?.version
           state.store.hmr_track[entity.id] = entity
         }
-        // Wrapper registration now handled by constructor-call-return via TRACKED_MARKER
         break
       }
 

@@ -11,6 +11,7 @@
  */
 
 import type { Subscription } from "rxjs"
+import { isEnabled$ } from "../00.types"
 import { emit } from "../01.patch-observable"
 import { __$ as baseTrack } from "./0_runtime"
 
@@ -35,6 +36,9 @@ export interface ModuleScope {
  */
 export function _rxjs_debugger_module_start(url: string): ModuleScope {
   const module_id = url
+
+  // Enable tracking when a module starts
+  isEnabled$.next(true)
 
   // Emit module start event - accumulator handles everything
   emit({ type: "hmr-module-call", id: module_id, url })
