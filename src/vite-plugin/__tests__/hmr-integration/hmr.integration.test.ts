@@ -10,11 +10,25 @@ const MAIN_TS_PATH = path.join(FIXTURE_DIR, "main.ts")
 // Read original content for restoration
 const ORIGINAL_CONTENT = fs.readFileSync(MAIN_TS_PATH, "utf-8")
 
+/**
+ * Helper to wait for window.__test__ to be ready with expected state
+ */
+async function waitForTestReady(page: Page, timeout = 10000) {
+  await page.waitForFunction(
+    () => {
+      const t = window.__test__
+      return t && t.source$ && t.subscription && t.values.length > 0
+    },
+    { timeout },
+  )
+}
+
 describe("HMR Integration", () => {
   let server: ViteDevServer
   let browser: Browser
   let page: Page
   let serverUrl: string
+  const pageErrors: string[] = []
 
   beforeAll(async () => {
     // Restore original content
@@ -46,6 +60,7 @@ describe("HMR Integration", () => {
     // Capture page errors
     page.on("pageerror", err => {
       console.error(`[browser error] ${err.message}`)
+      pageErrors.push(err.message)
     })
   }, 30000)
 
@@ -59,21 +74,12 @@ describe("HMR Integration", () => {
   })
 
   it("loads page with tracked BehaviorSubject", async () => {
-    // Collect page errors
-    const pageErrors: string[] = []
-    page.on("pageerror", err => pageErrors.push(err.message))
-
     await page.goto(serverUrl)
 
-    // Wait a bit for page to load
-    await new Promise(r => setTimeout(r, 3000))
+    // Wait for test harness to be fully ready
+    await waitForTestReady(page)
 
-    // Check for errors
-    if (pageErrors.length > 0) {
-      console.log("Page errors:", pageErrors)
-    }
-
-    // Debug: capture page state
+    // Capture state for assertions
     const debugState = await page.evaluate(() => ({
       hasTest: !!window.__test__,
       values: window.__test__?.values ?? [],
@@ -83,9 +89,12 @@ describe("HMR Integration", () => {
       subscriptionClosed: window.__test__?.subscription?.closed,
       outputText: document.getElementById("output")?.textContent ?? "N/A",
     }))
-    console.log("Debug state:", JSON.stringify(debugState, null, 2))
 
-    // Now try the actual test
+    // Check for errors
+    if (pageErrors.length > 0) {
+      console.log("Page errors:", pageErrors)
+    }
+
     expect(pageErrors).toHaveLength(0)
     expect(debugState.hasTest).toBe(true)
     expect(debugState.values.length).toBeGreaterThan(0)
@@ -96,9 +105,18 @@ describe("HMR Integration", () => {
   })
 
   it("pushes new value through BehaviorSubject", async () => {
+    // Ensure test harness is ready (in case of test isolation)
+    await waitForTestReady(page)
+
     await page.evaluate(() => {
       window.__test__.source$.next(20)
     })
+
+    // Wait for value to propagate
+    await page.waitForFunction(
+      () => window.__test__.values.includes(20),
+      { timeout: 5000 },
+    )
 
     const testState = await page.evaluate(() => ({
       values: window.__test__.values,
@@ -115,7 +133,7 @@ describe("HMR Integration", () => {
     )
     fs.writeFileSync(MAIN_TS_PATH, modifiedContent)
 
-    // Wait for HMR to process
+    // Wait for HMR to process - hmrCount should increment
     await page.waitForFunction(
       () => window.__test__?.hmrCount >= 2,
       { timeout: 10000 },
@@ -124,13 +142,16 @@ describe("HMR Integration", () => {
     const hmrCountAfter = await page.evaluate(() => window.__test__.hmrCount)
     expect(hmrCountAfter).toBeGreaterThanOrEqual(2)
 
-    // Give state$$ time to process HMR events
-    await new Promise(r => setTimeout(r, 100))
-
     // Push a new value through the stable wrapper
     await page.evaluate(() => {
       window.__test__.source$.next(30)
     })
+
+    // Wait for value to propagate
+    await page.waitForFunction(
+      () => window.__test__.values.includes(30),
+      { timeout: 5000 },
+    )
 
     const finalState = await page.evaluate(() => ({
       values: window.__test__.values,
@@ -144,6 +165,12 @@ describe("HMR Integration", () => {
   })
 
   it("subscription survives HMR - same subscription object", async () => {
+    // Wait for test harness to be ready
+    await page.waitForFunction(
+      () => window.__test__?.subscription !== undefined,
+      { timeout: 5000 },
+    )
+
     // The subscription should be the same object (not recreated)
     const subscriptionClosed = await page.evaluate(() =>
       window.__test__.subscription?.closed,
