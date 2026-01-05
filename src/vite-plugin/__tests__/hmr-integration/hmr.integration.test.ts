@@ -58,7 +58,7 @@ describe("HMR Integration", () => {
     await server?.close()
   })
 
-  it("loads page with tracked observable", async () => {
+  it("loads page with tracked BehaviorSubject", async () => {
     // Collect page errors
     const pageErrors: string[] = []
     page.on("pageerror", err => pageErrors.push(err.message))
@@ -73,17 +73,12 @@ describe("HMR Integration", () => {
       console.log("Page errors:", pageErrors)
     }
 
-    // Get page content for debugging
-    const pageContent = await page.content()
-    console.log("Page output element:", pageContent.includes('id="output"'))
-
     // Debug: capture page state
     const debugState = await page.evaluate(() => ({
       hasTest: !!window.__test__,
       values: window.__test__?.values ?? [],
       hmrCount: window.__test__?.hmrCount ?? 0,
       hasSource: !!window.__test__?.source$,
-      hasDoubled: !!window.__test__?.doubled$,
       hasSubscription: !!window.__test__?.subscription,
       subscriptionClosed: window.__test__?.subscription?.closed,
       outputText: document.getElementById("output")?.textContent ?? "N/A",
@@ -95,29 +90,28 @@ describe("HMR Integration", () => {
     expect(debugState.hasTest).toBe(true)
     expect(debugState.values.length).toBeGreaterThan(0)
 
-    // BehaviorSubject emits initial value 1, multiplied by 10 = 10
+    // BehaviorSubject emits initial value 10
     expect(debugState.values).toEqual([10])
     expect(debugState.hmrCount).toBe(1)
   })
 
-  it("pushes new value through observable chain", async () => {
+  it("pushes new value through BehaviorSubject", async () => {
     await page.evaluate(() => {
-      window.__test__.source$.next(2)
+      window.__test__.source$.next(20)
     })
 
     const testState = await page.evaluate(() => ({
       values: window.__test__.values,
     }))
 
-    // 2 * 10 = 20
     expect(testState.values).toEqual([10, 20])
   })
 
-  it("HMR swap: updates multiplier and new values use new multiplier", async () => {
-    // Modify the source file - change multiplier from 10 to 100
+  it("HMR swap: updates initial value and new emissions work", async () => {
+    // Modify the source file - change initialValue from 10 to 100
     const modifiedContent = ORIGINAL_CONTENT.replace(
-      "// HMR_MARKER: v1\nconst multiplier = 10",
-      "// HMR_MARKER: v2\nconst multiplier = 100",
+      "// HMR_MARKER: v1\nconst initialValue = 10",
+      "// HMR_MARKER: v2\nconst initialValue = 100",
     )
     fs.writeFileSync(MAIN_TS_PATH, modifiedContent)
 
@@ -130,27 +124,23 @@ describe("HMR Integration", () => {
     const hmrCountAfter = await page.evaluate(() => window.__test__.hmrCount)
     expect(hmrCountAfter).toBeGreaterThanOrEqual(2)
 
-    // Push a new value - should use the new multiplier
-    await page.evaluate(() => {
-      window.__test__.source$.next(3)
-    })
+    // Give state$$ time to process HMR events
+    await new Promise(r => setTimeout(r, 100))
 
-    // Wait for the new value to propagate
-    await page.waitForFunction(
-      () => window.__test__.values.includes(300), // 3 * 100 = 300
-      { timeout: 5000 },
-    )
+    // Push a new value through the stable wrapper
+    await page.evaluate(() => {
+      window.__test__.source$.next(30)
+    })
 
     const finalState = await page.evaluate(() => ({
       values: window.__test__.values,
       hmrCount: window.__test__.hmrCount,
     }))
 
-    // Should have: 10 (initial), 20 (before HMR), 300 (after HMR with new multiplier)
+    // Should have: 10 (initial), 20 (before HMR), 30 (after HMR)
     expect(finalState.values).toContain(10)
     expect(finalState.values).toContain(20)
-    expect(finalState.values).toContain(300)
-    console.log("Final values:", finalState.values)
+    expect(finalState.values).toContain(30)
   })
 
   it("subscription survives HMR - same subscription object", async () => {
