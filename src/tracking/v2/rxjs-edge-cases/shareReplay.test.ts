@@ -219,18 +219,15 @@ describe("shareReplay", () => {
     })
 
     /**
-     * BUG DISCOVERED: shareReplay buffer persists across HMR swaps.
+     * Verifies shareReplay buffer is fresh after HMR swap.
      *
-     * Expected: late subscriber gets [10] (only post-HMR values)
-     * Actual: late subscriber gets [2, 3, 10] (old buffer + new values)
+     * Root cause of original bug: trackedObservable's tryConnect used
+     * `initialMutableId ?? store.value` which meant stale initialMutableId
+     * (captured at wrapper creation) was preferred over current store value.
      *
-     * Root cause: trackedObservable may not be switching to the new
-     * shareReplay instance correctly, or the existing subscription
-     * chain is preserving the old shareReplay's buffer.
-     *
-     * TODO: Investigate and fix HMR swap for shareReplay.
+     * Fix: Prefer store value, fall back to initialMutableId.
      */
-    it.fails("shareReplay buffer is fresh after HMR - no stale data", () => {
+    it("shareReplay buffer is fresh after HMR - no stale data", () => {
       const __$ = _rxjs_debugger_module_start("file:///shareReplay-fresh.ts")
 
       const source$ = __$("source$", () => new Subject<number>())
@@ -259,7 +256,7 @@ describe("shareReplay", () => {
       // Late subscriber SHOULD get NEW buffer's replay only
       const late: number[] = []
       shared$.subscribe(v => late.push(v))
-      expect(late).toEqual([10]) // FAILS: currently gets [2, 3, 10]
+      expect(late).toEqual([10])
     })
   })
 

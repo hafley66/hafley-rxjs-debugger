@@ -81,9 +81,11 @@ export function trackedObservable<T>(trackId: string, initialMutableId?: string)
     }
 
     // Try immediate connection if observable is already in store
+    // IMPORTANT: Prefer current store value over initialMutableId
+    // initialMutableId is stale after HMR swap - captured at wrapper creation time
     const tryConnect = () => {
-      const entityId = initialMutableId
-        ?? state$.value.store.hmr_track[trackId]?.mutable_observable_id
+      const entityId = state$.value.store.hmr_track[trackId]?.mutable_observable_id
+        ?? initialMutableId
       if (entityId && state$.value.store.observable[entityId]) {
         connectToSource(entityId)
         return true
@@ -95,10 +97,11 @@ export function trackedObservable<T>(trackId: string, initialMutableId?: string)
     tryConnect()
 
     // Watch for changes - reconnect when observable becomes available or changes
+    // IMPORTANT: Prefer current store value over initialMutableId (same reason as tryConnect)
     const watchSub = __withNoTrack(() =>
       state$$.subscribe(s => {
-        const entityId = initialMutableId
-          ?? s.store.hmr_track[trackId]?.mutable_observable_id
+        const entityId = s.store.hmr_track[trackId]?.mutable_observable_id
+          ?? initialMutableId
         if (entityId && entityId !== lastEntityId && s.store.observable[entityId]) {
           connectToSource(entityId)
         }
