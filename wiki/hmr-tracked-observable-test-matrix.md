@@ -32,6 +32,7 @@ What must ALWAYS hold true for tracked entities:
 | **Loop detection** | `connectCallCount > 10` throws | Infinite loop crashes app |
 | **Context restoration** | Module/track context pushed during inner subscribe | Defer factories lose tracking |
 | **Unsub beats all** | JS is single-threaded; unsubscribe cannot be interrupted mid-swap | N/A - architectural reality |
+| **Store-first lookup** | tryConnect/watchSub prefer `store.mutable_observable_id` over `initialMutableId` | Late subscribers connect to stale observable (shareReplay buffer bug) |
 
 ### trackedSubject Invariants
 
