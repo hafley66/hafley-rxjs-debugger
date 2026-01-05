@@ -637,6 +637,89 @@ b$.subscribe(console.log)`
       })
     })
 
+    describe("share/shareReplay patterns", () => {
+      it("wraps Subject and pipe(shareReplay) as SEPARATE tracked entities", () => {
+        const code = `import { Subject } from 'rxjs'
+import { shareReplay } from 'rxjs/operators'
+
+const source$ = new Subject<number>()
+const shared$ = source$.pipe(shareReplay(1))`
+
+        const result = transform(code)!
+
+        // CRITICAL: These should be TWO separate __$ calls
+        // source$ wraps the Subject
+        // shared$ wraps the pipe - and source$ inside is the STABLE wrapper
+        expect(result.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { Subject } from 'rxjs'
+          import { shareReplay } from 'rxjs/operators'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+
+          const source$ = __$("source$:new Subject()", () => new Subject<number>())
+          const shared$ = __$("shared$:source$.shareReplay(1)", () => source$.pipe(shareReplay(1)))
+          __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
+          "
+        `)
+      })
+
+      it("wraps Subject.pipe(share) separately", () => {
+        const code = `import { Subject } from 'rxjs'
+import { share } from 'rxjs/operators'
+
+const events$ = new Subject<string>()
+const shared$ = events$.pipe(share())`
+
+        const result = transform(code)!
+
+        expect(result.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { Subject } from 'rxjs'
+          import { share } from 'rxjs/operators'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+
+          const events$ = __$("events$:new Subject()", () => new Subject<string>())
+          const shared$ = __$("shared$:events$.share()", () => events$.pipe(share()))
+          __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
+          "
+        `)
+      })
+
+      it("wraps chained pipe with share in the middle", () => {
+        const code = `import { Subject } from 'rxjs'
+import { map, share, filter } from 'rxjs/operators'
+
+const source$ = new Subject<number>()
+const processed$ = source$.pipe(map(x => x * 2), share(), filter(x => x > 0))`
+
+        const result = transform(code)!
+
+        expect(result.code).toMatchInlineSnapshot(`
+          "import { _rxjs_debugger_module_start } from "@hafley/rxjs-debugger/hmr"
+          import { Subject } from 'rxjs'
+          import { map, share, filter } from 'rxjs/operators'
+          const __$ = _rxjs_debugger_module_start(import.meta.url)
+
+
+          const source$ = __$("source$:new Subject()", () => new Subject<number>())
+          const processed$ = __$("processed$:source$.map(fn).share().filter(fn)", () => source$.pipe(map(x => x * 2), share(), filter(x => x > 0)))
+          __$.end()
+          if (import.meta.hot) {
+            import.meta.hot.accept()
+          }
+          "
+        `)
+      })
+    })
+
     describe("class this reference patterns", () => {
       it("skips this.subscribe() inside class methods", () => {
         const code = `import { BehaviorSubject } from 'rxjs'
