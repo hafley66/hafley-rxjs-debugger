@@ -126,6 +126,12 @@ export function patchObservable(Observable: { prototype: any; create?: any }) {
   if (proto[PATCHED_PROTO]) return
   proto[PATCHED_PROTO] = true
 
+  // Set global flag for debugging
+  if (typeof globalThis !== "undefined") {
+    ;(globalThis as any).__rxjs_debugger_patched__ = true
+    console.log("[rxjs-debugger] Observable.prototype patched")
+  }
+
   // TODO: lift creates lots of intermediate observables - may need to re-enable if noisy
   // const originalLift = proto.lift
   // proto.lift = function liftNoTrack(operator: any) {

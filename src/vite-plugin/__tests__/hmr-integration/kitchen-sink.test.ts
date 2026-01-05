@@ -45,18 +45,14 @@ describe("Kitchen Sink - All RxJS Patterns", () => {
     await server?.close()
   })
 
-  // KNOWN ISSUE: Synchronous subscriptions at module load time miss values
-  // because tracked wrappers connect asynchronously via state$$.
-  // Fix requires either sync connection or value buffering.
-  it.skip("collects correct values from all observable types", async () => {
+  it("collects correct values from all observable types", async () => {
     const errors: string[] = []
     page.on("pageerror", err => errors.push(err.message))
 
     await page.goto(serverUrl)
 
     // Wait for page to load and subscriptions to complete
-    // Need extra time for tracked wrappers to connect via state$$
-    await new Promise(r => setTimeout(r, 5000))
+    await new Promise(r => setTimeout(r, 1000))
 
     // Debug: check what's on window
     const windowKeys = await page.evaluate(() =>
@@ -78,15 +74,46 @@ describe("Kitchen Sink - All RxJS Patterns", () => {
           100,
           200,
         ],
-        "combined": [],
-        "defer": [],
-        "from": [],
-        "merged": [],
-        "nested": [],
-        "of": [],
-        "piped": [],
-        "shared": [],
-        "switched": [],
+        "combined": [
+          [
+            1,
+            2,
+            3,
+          ],
+        ],
+        "defer": [
+          "deferred",
+        ],
+        "from": [
+          4,
+          5,
+          6,
+        ],
+        "merged": [
+          "a",
+          "b",
+          "c",
+        ],
+        "nested": [
+          0,
+          4,
+        ],
+        "of": [
+          1,
+          2,
+          3,
+        ],
+        "piped": [
+          10,
+        ],
+        "shared": [
+          100,
+          200,
+        ],
+        "switched": [
+          100,
+          200,
+        ],
       }
     `)
   })
@@ -95,7 +122,6 @@ describe("Kitchen Sink - All RxJS Patterns", () => {
     // TODO: expose debugger state to window via plugin alias
   })
 
-  // Same issue as above - tracked wrappers don't connect in time
   it.skip("pushing values through subjects updates downstream", async () => {
     // Push new value through BehaviorSubject
     await page.evaluate(() => {

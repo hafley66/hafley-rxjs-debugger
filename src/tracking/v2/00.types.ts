@@ -98,16 +98,14 @@ export const _observableEvents$ = new Subject<ObservableEvent>()
 // Capture all events to debug buffer (useful for test debugging)
 _observableEvents$.subscribe(e => _eventBuffer.push(e))
 
-// Bootstrap the late-bound emitter after module initialization completes
-// Using queueMicrotask to defer until after all module-level code runs
-queueMicrotask(() =>
-  bootstrap(
-    _observableEvents$,
-    () => isEnabled$.value,
-    () => state$.value.stack.hmr_track,
-    () => state$.value.store,
-    () => state$.value.stack,
-  ),
+// Bootstrap the late-bound emitter - must run synchronously so user module code
+// that calls _rxjs_debugger_module_start gets proper isEnabled state
+bootstrap(
+  _observableEvents$,
+  () => isEnabled$.value,
+  () => state$.value.stack.hmr_track,
+  () => state$.value.store,
+  () => state$.value.stack,
 )
 
 type Hmm = {

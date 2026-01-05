@@ -113,4 +113,15 @@ of$.subscribe(v => window.__kitchen_sink__.values.of.push(v))
 from$.subscribe(v => window.__kitchen_sink__.values.from.push(v))
 defer$.subscribe(v => window.__kitchen_sink__.values.defer.push(v))
 
+// Debug: check patching and IDs
+console.log("[kitchen-sink] Patching status:", {
+  patched: (globalThis as any).__rxjs_debugger_patched__,
+})
+console.log("[kitchen-sink] Observable IDs:", {
+  behaviorSubject: (behaviorSubject$ as any).__id__,
+  piped: (piped$ as any).__id__,
+  cold: (cold$ as any).__id__,
+  of: (of$ as any).__id__,
+})
+
 console.log("[kitchen-sink] loaded")

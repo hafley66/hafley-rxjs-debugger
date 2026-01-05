@@ -1,5 +1,5 @@
 import { Subject, type Observable } from "rxjs"
-import { share } from "rxjs/operators"
+import { shareReplay } from "rxjs/operators"
 import { observableEventsEnabled$, type State, state$ } from "./00.types"
 import { now, observableIdMap, createId } from "./01_helpers"
 import { crawlArgs } from "./02_arg-crawler"
@@ -423,7 +423,7 @@ export const state$$ = observableEventsEnabled$.pipe(
     }
     return state
   }),
-  share(), // Multicast so scan runs once, not per-subscriber
+  shareReplay(1), // Multicast + replay last state to new subscribers
 )
 // Make it hot
 state$$.subscribe()
