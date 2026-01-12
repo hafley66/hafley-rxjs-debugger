@@ -1,9 +1,9 @@
 import { defineConfig } from 'vitest/config';
-import { rxjsDebuggerPlugin } from "./src/vite-plugin/v2"
+import { rxjsHmrPlugin } from "./src/vite-plugin/1_rxjs_hmr_plugin"
 
 export default defineConfig({
   plugins: [
-    rxjsDebuggerPlugin({ debug: false }),
+    rxjsHmrPlugin({ debug: false }),
   ],
   optimizeDeps: {
     exclude: ["rxjs"],

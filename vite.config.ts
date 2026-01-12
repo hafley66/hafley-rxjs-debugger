@@ -1,6 +1,6 @@
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "rolldown-vite"
-import { rxjsDebuggerPlugin } from "./src/vite-plugin/v2"
+import { rxjsHmrPlugin } from "./src/vite-plugin/1_rxjs_hmr_plugin"
 
 export default defineConfig({
   build: {
@@ -16,7 +16,7 @@ export default defineConfig({
     sourcemap: true,
     target: "esnext",
   },
-  plugins: [react(), rxjsDebuggerPlugin({ debug: true })],
+  plugins: [react(), rxjsHmrPlugin({ debug: true })],
   optimizeDeps: {
     exclude: ["rxjs"],
   },

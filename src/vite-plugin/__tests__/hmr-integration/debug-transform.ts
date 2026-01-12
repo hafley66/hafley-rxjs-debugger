@@ -1,7 +1,7 @@
 import fs from "fs"
 import { parseSync } from "oxc-parser"
 import path from "path"
-import { transformUserCode } from "../../0_user-transform"
+import { transformUserCode } from "../../2_user_transform"
 
 const fixturePath = path.join(import.meta.dirname, "fixture/main.ts")
 const code = fs.readFileSync(fixturePath, "utf-8")

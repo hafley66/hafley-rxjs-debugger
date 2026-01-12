@@ -5,7 +5,7 @@
  */
 
 import { beforeAll, describe, expect, it } from "vitest"
-import { shouldTransformUserCode, transformUserCode } from "../0_user-transform"
+import { shouldTransformUserCode, transformUserCode } from "../2_user_transform"
 
 describe("user-transform", () => {
   let parseSync: any

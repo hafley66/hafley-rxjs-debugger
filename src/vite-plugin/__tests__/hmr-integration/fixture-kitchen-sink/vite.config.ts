@@ -1,11 +1,11 @@
 import path from "path"
 import { defineConfig } from "rolldown-vite"
-import { rxjsDebuggerPlugin } from "../../../v2"
+import { rxjsHmrPlugin } from "../../../1_rxjs_hmr_plugin"
 
 export default defineConfig({
   root: __dirname,
   plugins: [
-    rxjsDebuggerPlugin({
+    rxjsHmrPlugin({
       debug: true,
       // Point to actual module paths relative to project root
       patchModulePath: path.resolve(__dirname, "../../../../tracking/v2/01.patch-observable"),
